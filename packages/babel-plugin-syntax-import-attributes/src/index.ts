@@ -5,7 +5,7 @@ export interface Options {
 }
 
 export default declare((api, { deprecatedAssertSyntax }: Options) => {
-  api.assertVersion("^7.22.0");
+  api.assertVersion(REQUIRED_VERSION("^7.22.0"));
 
   if (
     deprecatedAssertSyntax != null &&
@@ -21,10 +21,22 @@ export default declare((api, { deprecatedAssertSyntax }: Options) => {
 
     manipulateOptions({ parserOpts, generatorOpts }) {
       generatorOpts.importAttributesKeyword ??= "with";
-      parserOpts.plugins.push([
-        "importAttributes",
-        { deprecatedAssertSyntax: Boolean(deprecatedAssertSyntax) },
-      ]);
+
+      const importAssertionsPluginIndex =
+        parserOpts.plugins.indexOf("importAssertions");
+      if (importAssertionsPluginIndex !== -1) {
+        parserOpts.plugins.splice(importAssertionsPluginIndex, 1);
+        deprecatedAssertSyntax = true;
+      }
+
+      if (deprecatedAssertSyntax) {
+        parserOpts.plugins.push("deprecatedImportAssert", [
+          "importAttributes",
+          { deprecatedAssertSyntax: true },
+        ]);
+      } else {
+        parserOpts.plugins.push("importAttributes");
+      }
     },
   };
 });

@@ -1,8 +1,7 @@
 import jsx from "@babel/plugin-syntax-jsx";
 import { declare } from "@babel/helper-plugin-utils";
 import { template, types as t } from "@babel/core";
-import type { PluginPass } from "@babel/core";
-import type { NodePath, Scope, Visitor } from "@babel/traverse";
+import type { PluginPass, NodePath, Scope, Visitor } from "@babel/core";
 import { addNamed, addNamespace, isModule } from "@babel/helper-module-imports";
 import annotateAsPure from "@babel/helper-annotate-as-pure";
 import type {
@@ -28,11 +27,11 @@ const DEFAULT = {
 };
 
 const JSX_SOURCE_ANNOTATION_REGEX =
-  /^\s*\*?\s*@jsxImportSource\s+([^\s]+)\s*$/m;
-const JSX_RUNTIME_ANNOTATION_REGEX = /^\s*\*?\s*@jsxRuntime\s+([^\s]+)\s*$/m;
+  /^\s*(?:\*\s*)?@jsxImportSource\s+(\S+)\s*$/m;
+const JSX_RUNTIME_ANNOTATION_REGEX = /^\s*(?:\*\s*)?@jsxRuntime\s+(\S+)\s*$/m;
 
-const JSX_ANNOTATION_REGEX = /^\s*\*?\s*@jsx\s+([^\s]+)\s*$/m;
-const JSX_FRAG_ANNOTATION_REGEX = /^\s*\*?\s*@jsxFrag\s+([^\s]+)\s*$/m;
+const JSX_ANNOTATION_REGEX = /^\s*(?:\*\s*)?@jsx\s+(\S+)\s*$/m;
+const JSX_FRAG_ANNOTATION_REGEX = /^\s*(?:\*\s*)?@jsxFrag\s+(\S+)\s*$/m;
 
 const get = (pass: PluginPass, name: string) =>
   pass.get(`@babel/plugin-react-jsx/${name}`);
@@ -77,8 +76,8 @@ export default function createPlugin({
       runtime: RUNTIME_DEFAULT = process.env.BABEL_8_BREAKING
         ? "automatic"
         : development
-        ? "automatic"
-        : "classic",
+          ? "automatic"
+          : "classic",
 
       importSource: IMPORT_SOURCE_DEFAULT = DEFAULT.importSource,
       pragma: PRAGMA_DEFAULT = DEFAULT.pragma,
@@ -793,8 +792,8 @@ You can set \`throwIfNamespace: false\` to bypass this warning.`,
         !t.isObjectExpression(props[0].argument)
         ? props[0].argument
         : props.length > 0
-        ? t.objectExpression(props)
-        : t.nullLiteral();
+          ? t.objectExpression(props)
+          : t.nullLiteral();
     }
   });
 

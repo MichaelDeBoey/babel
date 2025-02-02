@@ -1,9 +1,9 @@
 /*:: declare var invariant; */
 
-import BaseParser from "./base";
-import type { Comment, Node, Identifier } from "../types";
+import BaseParser from "./base.ts";
+import type { Comment, Node, Identifier } from "../types.ts";
 import * as charCodes from "charcodes";
-import type { Undone } from "./node";
+import type { Undone } from "./node.ts";
 
 /**
  * A whitespace token containing comments
@@ -102,7 +102,12 @@ function adjustInnerComments(
 export default class CommentsParser extends BaseParser {
   addComment(comment: Comment): void {
     if (this.filename) comment.loc.filename = this.filename;
-    this.state.comments.push(comment);
+    const { commentsLen } = this.state;
+    if (this.comments.length !== commentsLen) {
+      this.comments.length = commentsLen;
+    }
+    this.comments.push(comment);
+    this.state.commentsLen++;
   }
 
   /**
@@ -162,7 +167,10 @@ export default class CommentsParser extends BaseParser {
     } else {
       /*:: invariant(commentWS.containingNode !== null) */
       const { containingNode: node, start: commentStart } = commentWS;
-      if (this.input.charCodeAt(commentStart - 1) === charCodes.comma) {
+      if (
+        this.input.charCodeAt(this.offsetToSourcePos(commentStart) - 1) ===
+        charCodes.comma
+      ) {
         // If a commentWhitespace follows a comma and the containingNode allows
         // list structures with trailing comma, merge it to the trailingComment
         // of the last non-null list element
@@ -192,6 +200,16 @@ export default class CommentsParser extends BaseParser {
           case "ExportNamedDeclaration":
           case "ImportDeclaration":
             adjustInnerComments(node, node.specifiers, commentWS);
+            break;
+          case "TSEnumDeclaration":
+            if (!process.env.BABEL_8_BREAKING) {
+              adjustInnerComments(node, node.members, commentWS);
+            } else {
+              setInnerComments(node, comments);
+            }
+            break;
+          case "TSEnumBody":
+            adjustInnerComments(node, node.members, commentWS);
             break;
           default: {
             setInnerComments(node, comments);

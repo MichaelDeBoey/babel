@@ -1,13 +1,35 @@
 import { declare } from "@babel/helper-plugin-utils";
-import { types as t } from "@babel/core";
-import type { NodePath } from "@babel/traverse";
+import { types as t, type NodePath } from "@babel/core";
 
 export default declare(api => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
-  function transformStatementList(paths: NodePath<t.Statement>[]) {
+  function transformStatementList(
+    parentPath: NodePath,
+    paths: NodePath<t.Statement>[],
+  ) {
+    if (process.env.BABEL_8_BREAKING) {
+      // eslint-disable-next-line no-var
+      var isInStrictMode = parentPath.isInStrictMode();
+    }
+
     for (const path of paths) {
       if (!path.isFunctionDeclaration()) continue;
+
+      if (
+        process.env.BABEL_8_BREAKING &&
+        !isInStrictMode &&
+        !(
+          path.node.async ||
+          path.node.generator ||
+          path.getData(
+            "@babel/plugin-transform-async-generator-functions/async_generator_function",
+          )
+        )
+      ) {
+        continue;
+      }
+
       const func = path.node;
       const declar = t.variableDeclaration("let", [
         t.variableDeclarator(func.id, t.toExpression(func)),
@@ -37,11 +59,11 @@ export default declare(api => {
           return;
         }
 
-        transformStatementList(path.get("body"));
+        transformStatementList(path, path.get("body"));
       },
 
       SwitchCase(path) {
-        transformStatementList(path.get("consequent"));
+        transformStatementList(path, path.get("consequent"));
       },
     },
   };

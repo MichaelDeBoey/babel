@@ -20,5 +20,5 @@ switch (true) {
     var _d = 5;
   case false:
     class _e {}
-    var _f = function () {};
+    function f() {}
 }

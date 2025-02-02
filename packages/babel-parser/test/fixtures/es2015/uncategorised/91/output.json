@@ -19,9 +19,13 @@
             "raw": "\"jquery\""
           },
           "value": "jquery"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

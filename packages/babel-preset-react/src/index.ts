@@ -3,7 +3,7 @@ import transformReactJSX from "@babel/plugin-transform-react-jsx";
 import transformReactJSXDevelopment from "@babel/plugin-transform-react-jsx-development";
 import transformReactDisplayName from "@babel/plugin-transform-react-display-name";
 import transformReactPure from "@babel/plugin-transform-react-pure-annotations";
-import normalizeOptions from "./normalize-options";
+import normalizeOptions from "./normalize-options.ts";
 
 export interface Options {
   development?: boolean;
@@ -18,10 +18,12 @@ export interface Options {
 }
 
 export default declarePreset((api, opts: Options) => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   const {
-    development,
+    development = process.env.BABEL_8_BREAKING
+      ? api.env(env => env === "development")
+      : false,
     importSource,
     pragma,
     pragmaFrag,

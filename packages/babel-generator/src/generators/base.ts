@@ -1,14 +1,14 @@
-import type Printer from "../printer";
+import type Printer from "../printer.ts";
 import type * as t from "@babel/types";
 
 export function File(this: Printer, node: t.File) {
   if (node.program) {
     // Print this here to ensure that Program node 'leadingComments' still
     // get printed after the hashbang.
-    this.print(node.program.interpreter, node);
+    this.print(node.program.interpreter);
   }
 
-  this.print(node.program, node);
+  this.print(node.program);
 }
 
 export function Program(this: Printer, node: t.Program) {
@@ -20,39 +20,36 @@ export function Program(this: Printer, node: t.Program) {
   const directivesLen = node.directives?.length;
   if (directivesLen) {
     const newline = node.body.length ? 2 : 1;
-    this.printSequence(node.directives, node, {
-      trailingCommentsLineOffset: newline,
-    });
+    this.printSequence(node.directives, undefined, newline);
     if (!node.directives[directivesLen - 1].trailingComments?.length) {
       this.newline(newline);
     }
   }
 
-  this.printSequence(node.body, node);
+  this.printSequence(node.body);
 }
 
 export function BlockStatement(this: Printer, node: t.BlockStatement) {
   this.token("{");
+  const exit = this.enterDelimited();
 
   const directivesLen = node.directives?.length;
   if (directivesLen) {
     const newline = node.body.length ? 2 : 1;
-    this.printSequence(node.directives, node, {
-      indent: true,
-      trailingCommentsLineOffset: newline,
-    });
+    this.printSequence(node.directives, true, newline);
     if (!node.directives[directivesLen - 1].trailingComments?.length) {
       this.newline(newline);
     }
   }
 
-  this.printSequence(node.body, node, { indent: true });
+  this.printSequence(node.body, true);
 
+  exit();
   this.rightBrace(node);
 }
 
 export function Directive(this: Printer, node: t.Directive) {
-  this.print(node.value, node);
+  this.print(node.value);
   this.semicolon();
 }
 

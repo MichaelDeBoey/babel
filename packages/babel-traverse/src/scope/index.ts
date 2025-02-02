@@ -1,18 +1,19 @@
-import Renamer from "./lib/renamer";
-import type NodePath from "../path";
-import traverse from "../index";
-import type { TraverseOptions } from "../index";
-import Binding from "./binding";
-import type { BindingKind } from "./binding";
+import Renamer from "./lib/renamer.ts";
+import type NodePath from "../path/index.ts";
+import traverse from "../index.ts";
+import Binding from "./binding.ts";
+import type { BindingKind } from "./binding.ts";
 import globals from "globals";
 import {
   NOT_LOCAL_BINDING,
+  assignmentExpression,
   callExpression,
   cloneNode,
   getBindingIdentifiers,
   identifier,
   isArrayExpression,
   isBinary,
+  isCallExpression,
   isClass,
   isClassBody,
   isClassDeclaration,
@@ -23,6 +24,7 @@ import {
   isIdentifier,
   isImportDeclaration,
   isLiteral,
+  isMemberExpression,
   isMethod,
   isModuleSpecifier,
   isNullLiteral,
@@ -36,11 +38,11 @@ import {
   isThisExpression,
   isUnaryExpression,
   isVariableDeclaration,
+  expressionStatement,
   matchesPattern,
   memberExpression,
   numericLiteral,
   toIdentifier,
-  unaryExpression,
   variableDeclaration,
   variableDeclarator,
   isRecordExpression,
@@ -50,11 +52,13 @@ import {
   isMetaProperty,
   isPrivateName,
   isExportDeclaration,
+  buildUndefinedNode,
+  sequenceExpression,
 } from "@babel/types";
 import * as t from "@babel/types";
-import { scope as scopeCache } from "../cache";
-import type { Visitor } from "../types";
-import { isExplodedVisitor } from "../visitors";
+import { scope as scopeCache } from "../cache.ts";
+import type { Visitor } from "../types.ts";
+import { isExplodedVisitor } from "../visitors.ts";
 
 type NodePart = string | number | boolean;
 // Recursively gathers the identifying names of a node.
@@ -264,7 +268,17 @@ const collectorVisitor: Visitor<CollectVisitorState> = {
     parent.registerDeclaration(path);
   },
 
+  TSImportEqualsDeclaration(path) {
+    const parent = path.scope.getBlockParent();
+
+    parent.registerDeclaration(path);
+  },
+
   ReferencedIdentifier(path, state) {
+    if (t.isTSQualifiedName(path.parent) && path.parent.right === path.node) {
+      return;
+    }
+    if (path.parentPath.isTSImportEqualsDeclaration()) return;
     state.references.push(path);
   },
 
@@ -353,9 +367,9 @@ const collectorVisitor: Visitor<CollectVisitorState> = {
     // referenced: here we registered it as a constantViolation
     if (
       path.isFunctionExpression() &&
-      path.has("id") &&
+      path.node.id &&
       // @ts-expect-error Fixme: document symbol ast properties
-      !path.get("id").node[NOT_LOCAL_BINDING]
+      !path.node.id[NOT_LOCAL_BINDING]
     ) {
       path.scope.registerBinding("local", path.get("id"), path);
     }
@@ -363,12 +377,16 @@ const collectorVisitor: Visitor<CollectVisitorState> = {
 
   ClassExpression(path) {
     if (
-      path.has("id") &&
+      path.node.id &&
       // @ts-expect-error Fixme: document symbol ast properties
-      !path.get("id").node[NOT_LOCAL_BINDING]
+      !path.node.id[NOT_LOCAL_BINDING]
     ) {
-      path.scope.registerBinding("local", path);
+      path.scope.registerBinding("local", path.get("id"), path);
     }
+  },
+
+  TSTypeAnnotation(path) {
+    path.skip();
   },
 };
 
@@ -376,15 +394,16 @@ let uid = 0;
 
 export type { Binding };
 
-export default class Scope {
+export { Scope as default };
+class Scope {
   uid;
 
   path: NodePath;
   block: t.Pattern | t.Scopable;
 
-  labels;
   inited;
 
+  labels: Map<string, NodePath<t.LabeledStatement>>;
   bindings: { [name: string]: Binding };
   references: { [name: string]: true };
   globals: { [name: string]: t.Identifier | t.JSXIdentifier };
@@ -435,39 +454,10 @@ export default class Scope {
       const shouldSkip = path.key === "key" || path.listKey === "decorators";
       path = path.parentPath;
       if (shouldSkip && path.isMethod()) path = path.parentPath;
-      if (path && path.isScope()) parent = path;
+      if (path?.isScope()) parent = path;
     } while (path && !parent);
 
     return parent?.scope;
-  }
-
-  get parentBlock() {
-    return this.path.parent;
-  }
-
-  get hub() {
-    return this.path.hub;
-  }
-
-  traverse<S>(
-    node: t.Node | t.Node[],
-    opts: TraverseOptions<S>,
-    state: S,
-  ): void;
-  traverse(node: t.Node | t.Node[], opts?: TraverseOptions, state?: any): void;
-  /**
-   * Traverse node with current scope and path.
-   *
-   * !!! WARNING !!!
-   * This method assumes that `this.path` is the NodePath representing `node`.
-   * After running the traversal, the `.parentPath` of the NodePaths
-   * corresponding to `node`'s children will be set to `this.path`.
-   *
-   * There is no good reason to use this method, since the only safe way to use
-   * it is equivalent to `scope.path.traverse(opts, state)`.
-   */
-  traverse<S>(node: any, opts: any, state?: S) {
-    traverse(node, opts, this, state, this.path);
   }
 
   /**
@@ -493,14 +483,13 @@ export default class Scope {
    */
 
   generateUid(name: string = "temp"): string {
-    name = toIdentifier(name)
-      .replace(/^_+/, "")
-      .replace(/[0-9]+$/g, "");
+    name = toIdentifier(name).replace(/^_+/, "").replace(/\d+$/g, "");
 
     let uid;
     let i = 1;
     do {
-      uid = this._generateUid(name, i);
+      uid = `_${name}`;
+      if (i > 1) uid += i;
       i++;
     } while (
       this.hasLabel(uid) ||
@@ -514,16 +503,6 @@ export default class Scope {
     program.uids[uid] = true;
 
     return uid;
-  }
-
-  /**
-   * Generate an `_id1`.
-   */
-
-  _generateUid(name: string, i: number) {
-    let id = name;
-    if (i > 1) id += i;
-    return `_${id}`;
   }
 
   generateUidBasedOnNode(node: t.Node, defaultName?: string) {
@@ -611,7 +590,7 @@ export default class Scope {
       (local.kind === "param" && kind === "const");
 
     if (duplicate) {
-      throw this.hub.buildError(
+      throw this.path.hub.buildError(
         id,
         `Duplicate declaration "${name}"`,
         TypeError,
@@ -638,19 +617,6 @@ export default class Scope {
     }
   }
 
-  /** @deprecated Not used in our codebase */
-  _renameFromMap(
-    map: Record<string | symbol, unknown>,
-    oldName: string | symbol,
-    newName: string | symbol,
-    value: unknown,
-  ) {
-    if (map[oldName]) {
-      map[newName] = value;
-      map[oldName] = null;
-    }
-  }
-
   dump() {
     const sep = "-".repeat(60);
     console.log(sep);
@@ -668,61 +634,6 @@ export default class Scope {
       }
     } while ((scope = scope.parent));
     console.log(sep);
-  }
-
-  // TODO: (Babel 8) Split i in two parameters, and use an object of flags
-  toArray(
-    node: t.Node,
-    i?: number | boolean,
-    arrayLikeIsIterable?: boolean | void,
-  ) {
-    if (isIdentifier(node)) {
-      const binding = this.getBinding(node.name);
-      if (binding?.constant && binding.path.isGenericType("Array")) {
-        return node;
-      }
-    }
-
-    if (isArrayExpression(node)) {
-      return node;
-    }
-
-    if (isIdentifier(node, { name: "arguments" })) {
-      return callExpression(
-        memberExpression(
-          memberExpression(
-            memberExpression(identifier("Array"), identifier("prototype")),
-            identifier("slice"),
-          ),
-          identifier("call"),
-        ),
-        [node],
-      );
-    }
-
-    let helperName;
-    const args = [node];
-    if (i === true) {
-      // Used in array-spread to create an array.
-      helperName = "toConsumableArray";
-    } else if (typeof i === "number") {
-      args.push(numericLiteral(i));
-
-      // Used in array-rest to create an array from a subset of an iterable.
-      helperName = "slicedToArray";
-      // TODO if (this.hub.isLoose("es6.forOf")) helperName += "-loose";
-    } else {
-      // Used in array-rest to create an array
-      helperName = "toArray";
-    }
-
-    if (arrayLikeIsIterable) {
-      args.unshift(this.hub.addHelper(helperName));
-      helperName = "maybeArrayLike";
-    }
-
-    // @ts-expect-error todo(flow->ts): t.Node is not valid to use in args, function argument typeneeds to be clarified
-    return callExpression(this.hub.addHelper(helperName), args);
   }
 
   hasLabel(name: string) {
@@ -783,11 +694,11 @@ export default class Scope {
   }
 
   buildUndefinedNode() {
-    return unaryExpression("void", numericLiteral(0), true);
+    return buildUndefinedNode();
   }
 
   registerConstantViolation(path: NodePath) {
-    const ids = path.getBindingIdentifiers();
+    const ids = path.getAssignmentIdentifiers();
     for (const name of Object.keys(ids)) {
       this.getBinding(name)?.reassign(path);
     }
@@ -827,7 +738,7 @@ export default class Scope {
 
         // A redeclaration of an existing variable is a modification
         if (local) {
-          this.registerConstantViolation(bindingPath);
+          local.reassign(bindingPath);
         } else {
           this.bindings[name] = new Binding({
             identifier: id,
@@ -929,17 +840,33 @@ export default class Scope {
       return true;
     } else if (isUnaryExpression(node)) {
       return this.isPure(node.argument, constantsOnly);
-    } else if (isTaggedTemplateExpression(node)) {
-      return (
-        matchesPattern(node.tag, "String.raw") &&
-        !this.hasBinding("String", true) &&
-        this.isPure(node.quasi, constantsOnly)
-      );
     } else if (isTemplateLiteral(node)) {
       for (const expression of node.expressions) {
         if (!this.isPure(expression, constantsOnly)) return false;
       }
       return true;
+    } else if (isTaggedTemplateExpression(node)) {
+      return (
+        matchesPattern(node.tag, "String.raw") &&
+        !this.hasBinding("String", { noGlobals: true }) &&
+        this.isPure(node.quasi, constantsOnly)
+      );
+    } else if (isMemberExpression(node)) {
+      return (
+        !node.computed &&
+        isIdentifier(node.object) &&
+        node.object.name === "Symbol" &&
+        isIdentifier(node.property) &&
+        node.property.name !== "for" &&
+        !this.hasBinding("Symbol", { noGlobals: true })
+      );
+    } else if (isCallExpression(node)) {
+      return (
+        matchesPattern(node.callee, "Symbol.for") &&
+        !this.hasBinding("Symbol", { noGlobals: true }) &&
+        node.arguments.length === 1 &&
+        t.isStringLiteral(node.arguments[0])
+      );
     } else {
       return isPureish(node);
     }
@@ -994,8 +921,15 @@ export default class Scope {
     this.uids = Object.create(null);
     this.data = Object.create(null);
 
-    const programParent = this.getProgramParent();
-    if (programParent.crawling) return;
+    let scope: Scope = this;
+    do {
+      if (scope.crawling) return;
+      if (scope.path.isProgram()) {
+        break;
+      }
+    } while ((scope = scope.parent));
+
+    const programParent = scope;
 
     const state: CollectVisitorState = {
       references: [],
@@ -1023,7 +957,7 @@ export default class Scope {
     // register assignments
     for (const path of state.assignments) {
       // register undeclared bindings as globals
-      const ids = path.getBindingIdentifiers();
+      const ids = path.getAssignmentIdentifiers();
       for (const name of Object.keys(ids)) {
         if (path.scope.getBinding(name)) continue;
         programParent.addGlobal(ids[name]);
@@ -1050,7 +984,7 @@ export default class Scope {
   }
 
   push(opts: {
-    id: t.LVal;
+    id: t.ArrayPattern | t.Identifier | t.ObjectPattern;
     init?: t.Expression;
     unique?: boolean;
     _blockHoist?: number | undefined;
@@ -1081,9 +1015,9 @@ export default class Scope {
       path.isFunction() &&
       // @ts-expect-error ArrowFunctionExpression never has a name
       !path.node.name &&
-      t.isCallExpression(path.parent, { callee: path.node }) &&
+      isCallExpression(path.parent, { callee: path.node }) &&
       path.parent.arguments.length <= path.node.params.length &&
-      t.isIdentifier(id)
+      isIdentifier(id)
     ) {
       path.pushContainer("params", id);
       path.scope.registerBinding(
@@ -1094,9 +1028,7 @@ export default class Scope {
     }
 
     if (path.isLoop() || path.isCatchClause() || path.isFunction()) {
-      // @ts-expect-error TS can not infer NodePath<Loop> | NodePath<CatchClause> as NodePath<Loop | CatchClause>
       path.ensureBlock();
-      // @ts-expect-error todo(flow->ts): improve types
       path = path.get("body");
     }
 
@@ -1204,27 +1136,6 @@ export default class Scope {
     return ids;
   }
 
-  /**
-   * Walks the scope tree and gathers all declarations of `kind`.
-   */
-
-  getAllBindingsOfKind(...kinds: string[]): Record<string, Binding> {
-    const ids = Object.create(null);
-
-    for (const kind of kinds) {
-      let scope: Scope = this;
-      do {
-        for (const name of Object.keys(scope.bindings)) {
-          const binding = scope.bindings[name];
-          if (binding.kind === kind) ids[name] = binding;
-        }
-        scope = scope.parent;
-      } while (scope);
-    }
-
-    return ids;
-  }
-
   bindingIdentifierEquals(name: string, node: t.Node): boolean {
     return this.getBindingIdentifier(name) === node;
   }
@@ -1296,15 +1207,26 @@ export default class Scope {
     opts?: boolean | { noGlobals?: boolean; noUids?: boolean },
   ) {
     if (!name) return false;
-    if (this.hasOwnBinding(name)) return true;
-    {
-      // TODO: Only accept the object form.
-      if (typeof opts === "boolean") opts = { noGlobals: opts };
+    let scope: Scope = this;
+    do {
+      if (scope.hasOwnBinding(name)) {
+        return true;
+      }
+    } while ((scope = scope.parent));
+
+    // TODO: Only accept the object form.
+    let noGlobals;
+    let noUids;
+    if (typeof opts === "object") {
+      noGlobals = opts.noGlobals;
+      noUids = opts.noUids;
+    } else if (typeof opts === "boolean") {
+      noGlobals = opts;
     }
-    if (this.parentHasBinding(name, opts)) return true;
-    if (!opts?.noUids && this.hasUid(name)) return true;
-    if (!opts?.noGlobals && Scope.globals.includes(name)) return true;
-    if (!opts?.noGlobals && Scope.contextVariables.includes(name)) return true;
+
+    if (!noUids && this.hasUid(name)) return true;
+    if (!noGlobals && Scope.globals.includes(name)) return true;
+    if (!noGlobals && Scope.contextVariables.includes(name)) return true;
     return false;
   }
 
@@ -1344,4 +1266,214 @@ export default class Scope {
       }
     } while ((scope = scope.parent));
   }
+
+  /**
+   * Hoist all the `var` variable to the beginning of the function/program
+   * scope where their binding will be actually defined. For exmaple,
+   *     { var x = 2 }
+   * will be transformed to
+   *     var x; { x = 2 }
+   *
+   * @param emit A custom function to emit `var` declarations, for example to
+   *   emit them in a different scope.
+   */
+  hoistVariables(
+    emit: (id: t.Identifier, hasInit: boolean) => void = id =>
+      this.push({ id }),
+  ) {
+    this.crawl();
+
+    const seen = new Set();
+    for (const name of Object.keys(this.bindings)) {
+      const binding = this.bindings[name];
+      if (!binding) continue;
+      const { path } = binding;
+      if (!path.isVariableDeclarator()) continue;
+      const { parent, parentPath } = path;
+
+      if (parent.kind !== "var" || seen.has(parent)) continue;
+      seen.add(path.parent);
+
+      let firstId;
+      const init = [];
+      for (const decl of parent.declarations) {
+        firstId ??= decl.id;
+        if (decl.init) {
+          init.push(assignmentExpression("=", decl.id, decl.init));
+        }
+
+        const ids = Object.keys(getBindingIdentifiers(decl, false, true, true));
+        for (const name of ids) {
+          emit(identifier(name), decl.init != null);
+        }
+      }
+
+      // for (var i in test)
+      if (parentPath.parentPath.isFor({ left: parent })) {
+        parentPath.replaceWith(firstId);
+      } else if (init.length === 0) {
+        parentPath.remove();
+      } else {
+        const expr = init.length === 1 ? init[0] : sequenceExpression(init);
+        if (parentPath.parentPath.isForStatement({ init: parent })) {
+          parentPath.replaceWith(expr);
+        } else {
+          parentPath.replaceWith(expressionStatement(expr));
+        }
+      }
+    }
+  }
+}
+
+if (!process.env.BABEL_8_BREAKING && !USE_ESM) {
+  /** @deprecated Not used in our codebase */
+  // @ts-expect-error Babel 7 compatibility
+  Scope.prototype._renameFromMap = function _renameFromMap(
+    map: Record<string | symbol, unknown>,
+    oldName: string | symbol,
+    newName: string | symbol,
+    value: unknown,
+  ) {
+    if (map[oldName]) {
+      map[newName] = value;
+      map[oldName] = null;
+    }
+  };
+
+  /**
+   * Traverse node with current scope and path.
+   *
+   * !!! WARNING !!!
+   * This method assumes that `this.path` is the NodePath representing `node`.
+   * After running the traversal, the `.parentPath` of the NodePaths
+   * corresponding to `node`'s children will be set to `this.path`.
+   *
+   * There is no good reason to use this method, since the only safe way to use
+   * it is equivalent to `scope.path.traverse(opts, state)`.
+   */
+  // @ts-expect-error Babel 7 compatibility
+  Scope.prototype.traverse = function <S>(
+    this: Scope,
+    node: any,
+    opts: any,
+    state?: S,
+  ) {
+    traverse(node, opts, this, state, this.path);
+  };
+
+  /**
+   * Generate an `_id1`.
+   */
+  // @ts-expect-error Babel 7 compatibility
+  Scope.prototype._generateUid = function _generateUid(
+    name: string,
+    i: number,
+  ) {
+    let id = name;
+    if (i > 1) id += i;
+    return `_${id}`;
+  };
+
+  // TODO: (Babel 8) Split i in two parameters, and use an object of flags
+  // @ts-expect-error Babel 7 compatibility
+  Scope.prototype.toArray = function toArray(
+    this: Scope,
+    node: t.Node,
+    i?: number | boolean,
+    arrayLikeIsIterable?: boolean | void,
+  ) {
+    if (isIdentifier(node)) {
+      const binding = this.getBinding(node.name);
+      if (binding?.constant && binding.path.isGenericType("Array")) {
+        return node;
+      }
+    }
+
+    if (isArrayExpression(node)) {
+      return node;
+    }
+
+    if (isIdentifier(node, { name: "arguments" })) {
+      return callExpression(
+        memberExpression(
+          memberExpression(
+            memberExpression(identifier("Array"), identifier("prototype")),
+            identifier("slice"),
+          ),
+          identifier("call"),
+        ),
+        [node],
+      );
+    }
+
+    let helperName;
+    const args = [node];
+    if (i === true) {
+      // Used in array-spread to create an array.
+      helperName = "toConsumableArray";
+    } else if (typeof i === "number") {
+      args.push(numericLiteral(i));
+
+      // Used in array-rest to create an array from a subset of an iterable.
+      helperName = "slicedToArray";
+      // TODO if (this.hub.isLoose("es6.forOf")) helperName += "-loose";
+    } else {
+      // Used in array-rest to create an array
+      helperName = "toArray";
+    }
+
+    if (arrayLikeIsIterable) {
+      args.unshift(this.path.hub.addHelper(helperName));
+      helperName = "maybeArrayLike";
+    }
+
+    // @ts-expect-error todo(flow->ts): t.Node is not valid to use in args, function argument typeneeds to be clarified
+    return callExpression(this.path.hub.addHelper(helperName), args);
+  };
+
+  /**
+   * Walks the scope tree and gathers all declarations of `kind`.
+   */
+  // @ts-expect-error Babel 7 compatibility
+  Scope.prototype.getAllBindingsOfKind = function getAllBindingsOfKind(
+    ...kinds: string[]
+  ): Record<string, Binding> {
+    const ids = Object.create(null);
+
+    for (const kind of kinds) {
+      let scope: Scope = this;
+      do {
+        for (const name of Object.keys(scope.bindings)) {
+          const binding = scope.bindings[name];
+          if (binding.kind === kind) ids[name] = binding;
+        }
+        scope = scope.parent;
+      } while (scope);
+    }
+
+    return ids;
+  };
+
+  Object.defineProperties(Scope.prototype, {
+    parentBlock: {
+      configurable: true,
+      enumerable: true,
+      get(this: Scope) {
+        return this.path.parent;
+      },
+    },
+    hub: {
+      configurable: true,
+      enumerable: true,
+      get(this: Scope) {
+        return this.path.hub;
+      },
+    },
+  });
+}
+
+type _Binding = Binding;
+// eslint-disable-next-line @typescript-eslint/no-namespace
+namespace Scope {
+  export type Binding = _Binding;
 }

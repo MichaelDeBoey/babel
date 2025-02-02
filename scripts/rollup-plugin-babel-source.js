@@ -40,7 +40,7 @@ export default function () {
               : browserFileAsJs;
 
             const nodeFileSrcAsJs = path.normalize(
-              nodeFile.replace(/^(\.\/)?lib\//, "src/")
+              nodeFile.replace(/^[./]?lib\//, "src/")
             );
             const nodeFileSrcAsTs = nodeFileSrcAsJs.replace(/.js$/, ".ts");
             const nodeFileSrc = fs.existsSync(nodeFileSrcAsTs)
@@ -73,7 +73,7 @@ export default function () {
       }
 
       const matches = importee.match(
-        /^@babel\/(?<pkg>[^/]+)(?:\/lib\/(?<internal>.*?))?$/
+        /^@babel\/(?<pkg>[^/]+)(?:\/lib\/(?<internal>.*))?$/
       );
       if (!matches) return null;
       const { pkg, internal } = matches.groups;
@@ -96,8 +96,8 @@ export default function () {
       const filename = internal
         ? `src/${internal}`
         : typeof packageJson["browser"] === "string"
-        ? packageJson["browser"]
-        : packageJson["main"];
+          ? packageJson["browser"]
+          : packageJson["main"];
 
       let asJS = path.normalize(
         path.join(

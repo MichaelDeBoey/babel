@@ -1,8 +1,9 @@
 import _normalizeOptions from "../lib/normalize-options.js";
 const normalizeOptions = _normalizeOptions.default || _normalizeOptions;
+import { describeBabel8, describeBabel7 } from "$repo-utils";
 
 describe("normalize options", () => {
-  (process.env.BABEL_8_BREAKING ? describe : describe.skip)("Babel 8", () => {
+  describeBabel8("Babel 8", () => {
     it("should throw on unknown options", () => {
       expect(() => normalizeOptions({ throwIfNamespaces: true })).toThrow(
         "@babel/preset-react: 'throwIfNamespaces' is not a valid top-level option.\n- Did you mean 'throwIfNamespace'?",
@@ -58,7 +59,7 @@ describe("normalize options", () => {
     it("default values", () => {
       expect(normalizeOptions({})).toMatchInlineSnapshot(`
         Object {
-          "development": false,
+          "development": undefined,
           "importSource": "react",
           "pragma": undefined,
           "pragmaFrag": undefined,
@@ -69,7 +70,7 @@ describe("normalize options", () => {
       `);
       expect(normalizeOptions({ runtime: "classic" })).toMatchInlineSnapshot(`
         Object {
-          "development": false,
+          "development": undefined,
           "importSource": undefined,
           "pragma": "React.createElement",
           "pragmaFrag": "React.Fragment",
@@ -80,7 +81,7 @@ describe("normalize options", () => {
       `);
     });
   });
-  (process.env.BABEL_8_BREAKING ? describe.skip : describe)("Babel 7", () => {
+  describeBabel7("Babel 7", () => {
     it("should not throw on unknown options", () => {
       expect(() => normalizeOptions({ throwIfNamespaces: true })).not.toThrow();
     });
@@ -99,7 +100,7 @@ describe("normalize options", () => {
     it("default values in Babel 7", () => {
       expect(normalizeOptions({})).toMatchInlineSnapshot(`
         Object {
-          "development": false,
+          "development": undefined,
           "importSource": undefined,
           "pragma": "React.createElement",
           "pragmaFrag": "React.Fragment",
@@ -112,7 +113,7 @@ describe("normalize options", () => {
       `);
       expect(normalizeOptions({ runtime: "automatic" })).toMatchInlineSnapshot(`
         Object {
-          "development": false,
+          "development": undefined,
           "importSource": undefined,
           "pragma": undefined,
           "pragmaFrag": undefined,

@@ -94,6 +94,13 @@ export interface ParserOptions {
   sourceFilename?: string;
 
   /**
+   * By default, all source indexes start from 0.
+   * You can provide a start index to alternatively start with.
+   * Useful for integration with other source tools.
+   */
+  startIndex?: number;
+
+  /**
    * By default, the first line of code parsed is treated as line 1.
    * You can provide a line number to alternatively start with.
    * Useful for integration with other source tools.
@@ -135,6 +142,13 @@ export interface ParserOptions {
    * AST nodes instead of using the `extra` property.
    */
   createParenthesizedExpressions?: boolean;
+
+  /**
+   * The default is false in Babel 7 and true in Babel 8
+   * Set this to true to parse it as an `ImportExpression` node.
+   * Otherwise `import(foo)` is parsed as `CallExpression(Import, [Identifier(foo)])`.
+   */
+  createImportExpressions?: boolean;
 }
 
 export type ParserPlugin = import("../src/typings").PluginConfig;

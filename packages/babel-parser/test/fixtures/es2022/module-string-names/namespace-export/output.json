@@ -33,9 +33,13 @@
             "raw": "\"Confucius\""
           },
           "value": "Confucius"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

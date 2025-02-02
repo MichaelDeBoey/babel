@@ -1,19 +1,28 @@
 import { declare } from "@babel/helper-plugin-utils";
 import syntaxTypeScript from "@babel/plugin-syntax-typescript";
-import type { PluginPass, types as t } from "@babel/core";
+import type { PluginPass, types as t, Scope, NodePath } from "@babel/core";
 import { injectInitialization } from "@babel/helper-create-class-features-plugin";
-import type { Binding, NodePath, Scope } from "@babel/traverse";
 import type { Options as SyntaxOptions } from "@babel/plugin-syntax-typescript";
 
-import transpileConstEnum from "./const-enum";
-import type { NodePathConstEnum } from "./const-enum";
-import transpileEnum from "./enum";
-import transpileNamespace from "./namespace";
+import transpileConstEnum from "./const-enum.ts";
+import type { NodePathConstEnum } from "./const-enum.ts";
+import transpileEnum from "./enum.ts";
+import {
+  GLOBAL_TYPES,
+  isGlobalType,
+  registerGlobalType,
+} from "./global-types.ts";
+import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 
 function isInType(path: NodePath) {
   switch (path.parent.type) {
     case "TSTypeReference":
-    case "TSExpressionWithTypeArguments":
+    case process.env.BABEL_8_BREAKING
+      ? "TSClassImplements"
+      : "TSExpressionWithTypeArguments":
+    case process.env.BABEL_8_BREAKING
+      ? "TSInterfaceHeritage"
+      : "TSExpressionWithTypeArguments":
     case "TSTypeQuery":
       return true;
     case "TSQualifiedName":
@@ -36,33 +45,11 @@ function isInType(path: NodePath) {
   }
 }
 
-const GLOBAL_TYPES = new WeakMap<Scope, Set<string>>();
 // Track programs which contain imports/exports of values, so that we can include
 // empty exports for programs that do not, but were parsed as modules. This allows
 // tools to infer unambiguously that results are ESM.
 const NEEDS_EXPLICIT_ESM = new WeakMap();
 const PARSED_PARAMS = new WeakSet();
-
-function isGlobalType({ scope }: NodePath, name: string) {
-  if (scope.hasBinding(name)) return false;
-  if (GLOBAL_TYPES.get(scope).has(name)) return true;
-
-  console.warn(
-    `The exported identifier "${name}" is not declared in Babel's scope tracker\n` +
-      `as a JavaScript value binding, and "@babel/plugin-transform-typescript"\n` +
-      `never encountered it as a TypeScript type declaration.\n` +
-      `It will be treated as a JavaScript value.\n\n` +
-      `This problem is likely caused by another plugin injecting\n` +
-      `"${name}" without registering it in the scope tracker. If you are the author\n` +
-      ` of that plugin, please use "scope.registerDeclaration(declarationPath)".`,
-  );
-
-  return false;
-}
-
-function registerGlobalType(programScope: Scope, name: string) {
-  GLOBAL_TYPES.get(programScope).add(name);
-}
 
 // A hack to avoid removing the impl Binding when we remove the declare NodePath
 function safeRemove(path: NodePath) {
@@ -119,9 +106,9 @@ export default declare((api, opts: Options) => {
   // Ref: https://github.com/babel/babel/issues/15089
   const { types: t, template } = api;
 
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
-  const JSX_PRAGMA_REGEX = /\*?\s*@jsx((?:Frag)?)\s+([^\s]+)/;
+  const JSX_PRAGMA_REGEX = /\*?\s*@jsx((?:Frag)?)\s+(\S+)/;
 
   const {
     allowNamespaces = true,
@@ -218,7 +205,7 @@ export default declare((api, opts: Options) => {
       // property is only added once. This is necessary for cases like
       // using `transform-classes`, which causes this visitor to run
       // twice.
-      const assigns = [];
+      const assigns: t.ExpressionStatement[] = [];
       const { scope } = path;
       for (const paramPath of path.get("params")) {
         const param = paramPath.node;
@@ -239,8 +226,11 @@ export default declare((api, opts: Options) => {
               "Parameter properties can not be destructuring patterns.",
             );
           }
-          assigns.push(template.statement.ast`
-          this.${t.cloneNode(id)} = ${t.cloneNode(id)}`);
+          assigns.push(
+            template.statement.ast`
+              this.${t.cloneNode(id)} = ${t.cloneNode(id)}
+            ` as t.ExpressionStatement,
+          );
 
           paramPath.replaceWith(paramPath.get("parameter"));
           scope.registerBinding("param", paramPath);
@@ -296,7 +286,9 @@ export default declare((api, opts: Options) => {
           }
 
           // remove type imports
-          for (let stmt of path.get("body")) {
+          for (let stmt of path.get("body") as Iterable<
+            NodePath<t.Statement | t.Expression>
+          >) {
             if (stmt.isImportDeclaration()) {
               if (!NEEDS_EXPLICIT_ESM.has(state.file.ast.program)) {
                 NEEDS_EXPLICIT_ESM.set(state.file.ast.program, true);
@@ -378,6 +370,26 @@ export default declare((api, opts: Options) => {
               continue;
             }
 
+            if (!onlyRemoveTypeImports && stmt.isTSImportEqualsDeclaration()) {
+              const { id } = stmt.node;
+              const binding = stmt.scope.getBinding(id.name);
+              if (
+                binding &&
+                (process.env.BABEL_8_BREAKING ||
+                  // @ts-ignore(Babel 7 vs Babel 8) Babel 7 AST
+                  !stmt.node.isExport) &&
+                isImportTypeOnly({
+                  binding,
+                  programPath: path,
+                  pragmaImportName,
+                  pragmaFragImportName,
+                })
+              ) {
+                stmt.remove();
+                continue;
+              }
+            }
+
             if (stmt.isExportDeclaration()) {
               stmt = stmt.get("declaration");
             }
@@ -425,6 +437,13 @@ export default declare((api, opts: Options) => {
           return;
         }
 
+        if (
+          process.env.BABEL_8_BREAKING &&
+          t.isTSImportEqualsDeclaration(path.node.declaration)
+        ) {
+          return;
+        }
+
         // remove export declaration that is filled with type-only specifiers
         //   export { type A1, type A2 } from "a";
         if (
@@ -465,8 +484,8 @@ export default declare((api, opts: Options) => {
         // replace its parent path.
         if (t.isTSModuleDeclaration(path.node.declaration)) {
           const namespace = path.node.declaration;
-          const { id } = namespace;
-          if (t.isIdentifier(id)) {
+          if (!t.isStringLiteral(namespace.id)) {
+            const id = getFirstIdentifier(namespace.id);
             if (path.scope.hasOwnBinding(id.name)) {
               path.replaceWith(namespace);
             } else {
@@ -553,7 +572,13 @@ export default declare((api, opts: Options) => {
         const { node }: { node: typeof path.node & ExtraNodeProps } = path;
 
         if (node.typeParameters) node.typeParameters = null;
-        if (node.superTypeParameters) node.superTypeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          // @ts-ignore(Babel 7 vs Babel 8) Renamed
+          if (node.superTypeArguments) node.superTypeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Renamed
+          if (node.superTypeParameters) node.superTypeParameters = null;
+        }
         if (node.implements) node.implements = null;
         if (node.abstract) node.abstract = null;
 
@@ -639,10 +664,18 @@ export default declare((api, opts: Options) => {
           init = entityNameToExpr(moduleReference);
           varKind = "var";
         }
+        const newNode = t.variableDeclaration(varKind, [
+          t.variableDeclarator(id, init),
+        ]);
 
-        path.replaceWith(
-          t.variableDeclaration(varKind, [t.variableDeclarator(id, init)]),
-        );
+        if (process.env.BABEL_8_BREAKING) {
+          path.replaceWith(newNode);
+        } else {
+          path.replaceWith(
+            // @ts-ignore(Babel 7 vs Babel 8) Babel 7 AST
+            path.node.isExport ? t.exportNamedDeclaration(newNode) : newNode,
+          );
+        }
         path.scope.registerDeclaration(path);
       },
 
@@ -684,32 +717,59 @@ export default declare((api, opts: Options) => {
              but allows loading unbundled plugin (which cannot obviously import
              the bundled `@babel/core` version).
            */
-        api.types.tsInstantiationExpression
-        ? "TSNonNullExpression|TSInstantiationExpression"
-        : "TSNonNullExpression"](
-        path: NodePath<t.TSNonNullExpression | t.TSExpressionWithTypeArguments>,
+          api.types.tsInstantiationExpression
+          ? "TSNonNullExpression|TSInstantiationExpression"
+          : "TSNonNullExpression"](
+        path: NodePath<t.TSNonNullExpression | t.TSInstantiationExpression>,
       ) {
         path.replaceWith(path.node.expression);
       },
 
       CallExpression(path) {
-        path.node.typeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          path.node.typeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Removed in Babel 8
+          path.node.typeParameters = null;
+        }
       },
 
       OptionalCallExpression(path) {
-        path.node.typeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          path.node.typeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Removed in Babel 8
+          path.node.typeParameters = null;
+        }
       },
 
       NewExpression(path) {
-        path.node.typeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          path.node.typeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Removed in Babel 8
+          path.node.typeParameters = null;
+        }
       },
 
       JSXOpeningElement(path) {
-        path.node.typeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          //@ts-ignore(Babel 7 vs Babel 8) Babel 8 AST
+          path.node.typeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Removed in Babel 8
+          path.node.typeParameters = null;
+        }
       },
 
       TaggedTemplateExpression(path) {
-        path.node.typeParameters = null;
+        if (process.env.BABEL_8_BREAKING) {
+          // @ts-ignore(Babel 7 vs Babel 8) Babel 8 AST
+          path.node.typeArguments = null;
+        } else {
+          // @ts-ignore(Babel 7 vs Babel 8) Removed in Babel 8
+          path.node.typeParameters = null;
+        }
       },
     },
   };
@@ -736,7 +796,7 @@ export default declare((api, opts: Options) => {
     pragmaImportName,
     pragmaFragImportName,
   }: {
-    binding: Binding;
+    binding: Scope.Binding;
     programPath: NodePath<t.Program>;
     pragmaImportName: string;
     pragmaFragImportName: string;

@@ -18,9 +18,13 @@
             "raw": "\"foo\""
           },
           "value": "foo"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

@@ -36,9 +36,13 @@
             "raw": "\"bar\""
           },
           "value": "bar"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

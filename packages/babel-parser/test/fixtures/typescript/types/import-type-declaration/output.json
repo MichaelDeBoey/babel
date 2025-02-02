@@ -30,7 +30,8 @@
             "raw": "'./mod'"
           },
           "value": "./mod"
-        }
+        },
+        "attributes": []
       },
       {
         "type": "ImportDeclaration",
@@ -76,7 +77,8 @@
             "raw": "'./mod'"
           },
           "value": "./mod"
-        }
+        },
+        "attributes": []
       },
       {
         "type": "ImportDeclaration",
@@ -101,9 +103,13 @@
             "raw": "'./mod'"
           },
           "value": "./mod"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

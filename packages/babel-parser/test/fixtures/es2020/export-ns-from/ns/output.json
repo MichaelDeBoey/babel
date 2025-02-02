@@ -29,9 +29,13 @@
             "raw": "'test'"
           },
           "value": "test"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

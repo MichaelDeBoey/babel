@@ -124,6 +124,7 @@
             }
           ]
         },
+        "attributes": [],
         "innerComments": [
           {
             "type": "CommentBlock",
@@ -210,6 +211,7 @@
             }
           ]
         },
+        "attributes": [],
         "leadingComments": [
           {
             "type": "CommentBlock",
@@ -219,7 +221,10 @@
         ]
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   },
   "comments": [
     {

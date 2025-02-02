@@ -1,27 +1,27 @@
 import path from "path";
-import gensync from "gensync";
 import type { Handler } from "gensync";
-import Plugin from "./plugin";
-import { mergeOptions } from "./util";
-import { createItemFromDescriptor } from "./item";
-import { buildRootChain } from "./config-chain";
-import type { ConfigContext, FileHandling } from "./config-chain";
-import { getEnv } from "./helpers/environment";
-import { validate } from "./validation/options";
+import Plugin from "./plugin.ts";
+import { mergeOptions } from "./util.ts";
+import { createItemFromDescriptor } from "./item.ts";
+import { buildRootChain } from "./config-chain.ts";
+import type { ConfigContext, FileHandling } from "./config-chain.ts";
+import { getEnv } from "./helpers/environment.ts";
+import { validate } from "./validation/options.ts";
 
 import type {
   ValidatedOptions,
   NormalizedOptions,
   RootMode,
-} from "./validation/options";
+  InputOptions,
+} from "./validation/options.ts";
 
 import {
   findConfigUpwards,
   resolveShowConfigPath,
   ROOT_CONFIG_FILENAMES,
-} from "./files";
-import type { ConfigFile, IgnoreFile } from "./files";
-import { resolveTargets } from "./resolve-targets";
+} from "./files/index.ts";
+import type { ConfigFile, IgnoreFile } from "./files/index.ts";
+import { resolveTargets } from "./resolve-targets.ts";
 
 function resolveRootMode(rootDir: string, rootMode: RootMode): string {
   switch (rootMode) {
@@ -55,18 +55,19 @@ function resolveRootMode(rootDir: string, rootMode: RootMode): string {
   }
 }
 
-type PrivPartialConfig = {
+export type PrivPartialConfig = {
+  showIgnoredFiles?: boolean;
   options: NormalizedOptions;
   context: ConfigContext;
-  fileHandling: FileHandling;
-  ignore: IgnoreFile | void;
   babelrc: ConfigFile | void;
   config: ConfigFile | void;
+  ignore: IgnoreFile | void;
+  fileHandling: FileHandling;
   files: Set<string>;
 };
 
 export default function* loadPrivatePartialConfig(
-  inputOpts: unknown,
+  inputOpts: InputOptions,
 ): Handler<PrivPartialConfig | null> {
   if (
     inputOpts != null &&
@@ -155,12 +156,8 @@ export default function* loadPrivatePartialConfig(
   };
 }
 
-type LoadPartialConfigOpts = {
-  showIgnoredFiles?: boolean;
-};
-
-export const loadPartialConfig = gensync(function* (
-  opts?: LoadPartialConfigOpts,
+export function* loadPartialConfig(
+  opts?: InputOptions,
 ): Handler<PartialConfig | null> {
   let showIgnoredFiles = false;
   // We only extract showIgnoredFiles if opts is an object, so that
@@ -197,7 +194,7 @@ export const loadPartialConfig = gensync(function* (
     fileHandling,
     files,
   );
-});
+}
 
 export type { PartialConfig };
 

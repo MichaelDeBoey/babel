@@ -1,16 +1,16 @@
-import type Parser from "./index";
-import UtilParser from "./util";
-import { SourceLocation, type Position } from "../util/location";
-import type { Comment, Node as NodeType, NodeBase } from "../types";
+import UtilParser from "./util.ts";
+import { SourceLocation, type Position } from "../util/location.ts";
+import type { Comment, Node as NodeType, NodeBase } from "../types.ts";
+import { OptionFlags } from "../options.ts";
 
 // Start an AST node, attaching a start offset.
 
 class Node implements NodeBase {
-  constructor(parser: Parser, pos: number, loc: Position) {
+  constructor(parser: UtilParser, pos: number, loc: Position) {
     this.start = pos;
     this.end = 0;
     this.loc = new SourceLocation(loc);
-    if (parser?.options.ranges) this.range = [pos, 0];
+    if (parser?.optionFlags & OptionFlags.Ranges) this.range = [pos, 0];
     if (parser?.filename) this.loc.filename = parser.filename;
   }
 
@@ -97,18 +97,19 @@ export function cloneStringLiteral(node: any): any {
 export type Undone<T extends NodeType> = Omit<T, "type">;
 
 export abstract class NodeUtils extends UtilParser {
-  startNode<T extends NodeType>(): Undone<T> {
-    // @ts-expect-error cast Node as Undone<T>
-    return new Node(this, this.state.start, this.state.startLoc);
+  startNode<T extends NodeType = never>(): Undone<T> {
+    const loc = this.state.startLoc;
+    return new Node(this, loc.index, loc) as unknown as Undone<T>;
   }
 
-  startNodeAt<T extends NodeType>(loc: Position): Undone<T> {
-    // @ts-expect-error cast Node as Undone<T>
-    return new Node(this, loc.index, loc);
+  startNodeAt<T extends NodeType = never>(loc: Position): Undone<T> {
+    return new Node(this, loc.index, loc) as unknown as Undone<T>;
   }
 
   /** Start a new node with a previous node's location. */
-  startNodeAtNode<T extends NodeType>(type: Undone<NodeType>): Undone<T> {
+  startNodeAtNode<T extends NodeType = never>(
+    type: Undone<NodeType>,
+  ): Undone<T> {
     return this.startNodeAt(type.loc.start);
   }
 
@@ -131,20 +132,20 @@ export abstract class NodeUtils extends UtilParser {
           " Instead use resetEndLocation() or change type directly.",
       );
     }
-    // @ts-expect-error migrate to Babel types AST typings
-    node.type = type;
-    // @ts-expect-error migrate to Babel types AST typings
+    (node as T).type = type;
     node.end = endLoc.index;
     node.loc.end = endLoc;
-    if (this.options.ranges) node.range[1] = endLoc.index;
-    if (this.options.attachComment) this.processComment(node as T);
+    if (this.optionFlags & OptionFlags.Ranges) node.range[1] = endLoc.index;
+    if (this.optionFlags & OptionFlags.AttachComment) {
+      this.processComment(node as T);
+    }
     return node as T;
   }
 
   resetStartLocation(node: NodeBase, startLoc: Position): void {
     node.start = startLoc.index;
     node.loc.start = startLoc;
-    if (this.options.ranges) node.range[0] = startLoc.index;
+    if (this.optionFlags & OptionFlags.Ranges) node.range[0] = startLoc.index;
   }
 
   resetEndLocation(
@@ -153,7 +154,7 @@ export abstract class NodeUtils extends UtilParser {
   ): void {
     node.end = endLoc.index;
     node.loc.end = endLoc;
-    if (this.options.ranges) node.range[1] = endLoc.index;
+    if (this.optionFlags & OptionFlags.Ranges) node.range[1] = endLoc.index;
   }
 
   /**

@@ -16,9 +16,6 @@
     "@babel/codemod",
     "@babel/plugin"
   ],
-  "dependencies": {
-    "@babel/plugin-syntax-optional-catch-binding": "condition:BABEL_8_BREAKING ? : ^7.8.3"
-  },
   "peerDependencies": {
     "@babel/core": "^7.0.0-0"
   },
@@ -34,7 +31,7 @@
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {
@@ -42,15 +39,18 @@
       }
     ],
     "USE_ESM": [
+      null,
       {
-        "type": "module"
-      },
-      null
+        "type": "commonjs"
+      }
     ]
   },
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "type": "commonjs"
+  "type": "module"
 }

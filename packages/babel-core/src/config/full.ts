@@ -1,46 +1,50 @@
 import gensync, { type Handler } from "gensync";
-import { forwardAsync, maybeAsync, isThenable } from "../gensync-utils/async";
+import {
+  forwardAsync,
+  maybeAsync,
+  isThenable,
+} from "../gensync-utils/async.ts";
 
-import { mergeOptions } from "./util";
-import * as context from "../index";
-import Plugin from "./plugin";
-import { getItemDescriptor } from "./item";
-import { buildPresetChain } from "./config-chain";
-import { finalize as freezeDeepArray } from "./helpers/deep-array";
-import type { DeepArray, ReadonlyDeepArray } from "./helpers/deep-array";
+import { mergeOptions } from "./util.ts";
+import * as context from "../index.ts";
+import Plugin from "./plugin.ts";
+import { getItemDescriptor } from "./item.ts";
+import { buildPresetChain } from "./config-chain.ts";
+import { finalize as freezeDeepArray } from "./helpers/deep-array.ts";
+import type { DeepArray, ReadonlyDeepArray } from "./helpers/deep-array.ts";
 import type {
   ConfigContext,
   ConfigChain,
   PresetInstance,
-} from "./config-chain";
-import type { UnloadedDescriptor } from "./config-descriptors";
+} from "./config-chain.ts";
+import type { UnloadedDescriptor } from "./config-descriptors.ts";
 import traverse from "@babel/traverse";
-import { makeWeakCache, makeWeakCacheSync } from "./caching";
-import type { CacheConfigurator } from "./caching";
+import { makeWeakCache, makeWeakCacheSync } from "./caching.ts";
+import type { CacheConfigurator } from "./caching.ts";
 import {
   validate,
   checkNoUnwrappedItemOptionPairs,
-} from "./validation/options";
-import type { PluginItem } from "./validation/options";
-import { validatePluginObject } from "./validation/plugins";
-import { makePluginAPI, makePresetAPI } from "./helpers/config-api";
-import type { PluginAPI, PresetAPI } from "./helpers/config-api";
+} from "./validation/options.ts";
+import type { InputOptions, PluginItem } from "./validation/options.ts";
+import { validatePluginObject } from "./validation/plugins.ts";
+import { makePluginAPI, makePresetAPI } from "./helpers/config-api.ts";
+import type { PluginAPI, PresetAPI } from "./helpers/config-api.ts";
 
-import loadPrivatePartialConfig from "./partial";
-import type { ValidatedOptions } from "./validation/options";
+import loadPrivatePartialConfig from "./partial.ts";
+import type { ValidatedOptions } from "./validation/options.ts";
 
-import type * as Context from "./cache-contexts";
-import ConfigError from "../errors/config-error";
+import type * as Context from "./cache-contexts.ts";
+import ConfigError from "../errors/config-error.ts";
 
 type LoadedDescriptor = {
-  value: {};
-  options: {};
+  value: any;
+  options: object;
   dirname: string;
   alias: string;
   externalDependencies: ReadonlyDeepArray<string>;
 };
 
-export type { InputOptions } from "./validation/options";
+export type { InputOptions } from "./validation/options.ts";
 
 export type ResolvedConfig = {
   options: any;
@@ -53,7 +57,7 @@ export type PluginPassList = Array<Plugin>;
 export type PluginPasses = Array<PluginPassList>;
 
 export default gensync(function* loadFullConfig(
-  inputOpts: unknown,
+  inputOpts: InputOptions,
 ): Handler<ResolvedConfig | null> {
   const result = yield* loadPrivatePartialConfig(inputOpts);
   if (!result) {
@@ -65,7 +69,7 @@ export default gensync(function* loadFullConfig(
     return null;
   }
 
-  const optionDefaults = {};
+  const optionDefaults: ValidatedOptions = {};
 
   const { plugins, presets } = options;
 
@@ -164,7 +168,7 @@ export default gensync(function* loadFullConfig(
 
   if (ignored) return null;
 
-  const opts: any = optionDefaults;
+  const opts: ValidatedOptions = optionDefaults;
   mergeOptions(opts, options);
 
   const pluginContext: Context.FullPlugin = {
@@ -255,7 +259,7 @@ const makeDescriptorLoader = <Context, API>(
     let item: unknown = value;
     if (typeof value === "function") {
       const factory = maybeAsync(
-        value as (api: API, options: {}, dirname: string) => unknown,
+        value as (api: API, options: object, dirname: string) => unknown,
         `You appear to be using an async plugin/preset, but Babel has been called synchronously`,
       );
 
@@ -278,7 +282,7 @@ const makeDescriptorLoader = <Context, API>(
     }
 
     if (isThenable(item)) {
-      // @ts-expect-error - if we want to support async plugins
+      // if we want to support async plugins
       yield* [];
 
       throw new Error(
@@ -359,9 +363,9 @@ const instantiatePlugin = makeWeakCache(function* (
       return cache.invalidate(data => run(inheritsDescriptor, data));
     });
 
-    plugin.pre = chain(inherits.pre, plugin.pre);
-    plugin.post = chain(inherits.post, plugin.post);
-    plugin.manipulateOptions = chain(
+    plugin.pre = chainMaybeAsync(inherits.pre, plugin.pre);
+    plugin.post = chainMaybeAsync(inherits.post, plugin.post);
+    plugin.manipulateOptions = chainMaybeAsync(
       inherits.manipulateOptions,
       plugin.manipulateOptions,
     );
@@ -484,16 +488,18 @@ function* loadPresetDescriptor(
   };
 }
 
-function chain<Args extends any[]>(
-  a: undefined | ((...args: Args) => void),
-  b: undefined | ((...args: Args) => void),
-) {
-  const fns = [a, b].filter(Boolean);
-  if (fns.length <= 1) return fns[0];
+function chainMaybeAsync<Args extends any[], R extends void | Promise<void>>(
+  a: undefined | ((...args: Args) => R),
+  b: undefined | ((...args: Args) => R),
+): (...args: Args) => R {
+  if (!a) return b;
+  if (!b) return a;
 
-  return function (this: unknown, ...args: unknown[]) {
-    for (const fn of fns) {
-      fn.apply(this, args);
+  return function (this: unknown, ...args: Args) {
+    const res = a.apply(this, args);
+    if (res && typeof res.then === "function") {
+      return res.then(() => b.apply(this, args));
     }
-  };
+    return b.apply(this, args);
+  } as (...args: Args) => R;
 }

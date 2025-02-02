@@ -1,10 +1,8 @@
 import { declare } from "@babel/helper-plugin-utils";
-import syntaxFunctionBind from "@babel/plugin-syntax-function-bind";
-import { types as t } from "@babel/core";
-import type { Scope } from "@babel/traverse";
+import { types as t, type Scope } from "@babel/core";
 
 export default declare(api => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   function getTempId(scope: Scope) {
     let id = scope.path.getData("functionBind");
@@ -53,7 +51,7 @@ export default declare(api => {
 
   return {
     name: "proposal-function-bind",
-    inherits: syntaxFunctionBind,
+    manipulateOptions: (_, parser) => parser.plugins.push("functionBind"),
 
     visitor: {
       CallExpression({ node, scope }) {

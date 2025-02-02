@@ -1,6 +1,6 @@
 {
   "name": "@babel/preset-env",
-  "version": "7.22.10",
+  "version": "7.26.7",
   "description": "A Babel preset for each environment.",
   "author": "The Babel Team (https://babel.dev/team)",
   "homepage": "https://babel.dev/docs/en/next/babel-preset-env",
@@ -20,26 +20,14 @@
     "@babel/helper-compilation-targets": "workspace:^",
     "@babel/helper-plugin-utils": "workspace:^",
     "@babel/helper-validator-option": "workspace:^",
+    "@babel/plugin-bugfix-firefox-class-in-computed-class-key": "workspace:^",
+    "@babel/plugin-bugfix-safari-class-field-initializer-scope": "workspace:^",
     "@babel/plugin-bugfix-safari-id-destructuring-collision-in-function-expression": "workspace:^",
     "@babel/plugin-bugfix-v8-spread-parameters-in-optional-chaining": "workspace:^",
+    "@babel/plugin-bugfix-v8-static-class-fields-redefine-readonly": "workspace:^",
     "@babel/plugin-proposal-private-property-in-object": "condition:BABEL_8_BREAKING ? : 7.21.0-placeholder-for-preset-env.2",
-    "@babel/plugin-syntax-async-generators": "condition:BABEL_8_BREAKING ? : ^7.8.4",
-    "@babel/plugin-syntax-class-properties": "condition:BABEL_8_BREAKING ? : ^7.12.13",
-    "@babel/plugin-syntax-class-static-block": "condition:BABEL_8_BREAKING ? : ^7.14.5",
-    "@babel/plugin-syntax-dynamic-import": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-export-namespace-from": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-import-assertions": "workspace:^",
-    "@babel/plugin-syntax-import-attributes": "workspace:^",
-    "@babel/plugin-syntax-import-meta": "condition:BABEL_8_BREAKING ? : ^7.10.4",
-    "@babel/plugin-syntax-json-strings": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-logical-assignment-operators": "condition:BABEL_8_BREAKING ? : ^7.10.4",
-    "@babel/plugin-syntax-nullish-coalescing-operator": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-numeric-separator": "condition:BABEL_8_BREAKING ? : ^7.10.4",
-    "@babel/plugin-syntax-object-rest-spread": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-optional-catch-binding": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-optional-chaining": "condition:BABEL_8_BREAKING ? : ^7.8.3",
-    "@babel/plugin-syntax-private-property-in-object": "condition:BABEL_8_BREAKING ? : ^7.14.5",
-    "@babel/plugin-syntax-top-level-await": "condition:BABEL_8_BREAKING ? : ^7.14.5",
+    "@babel/plugin-syntax-import-assertions": "condition:BABEL_8_BREAKING ? : workspace:^ (peer:@babel/core) (esm:default)",
+    "@babel/plugin-syntax-import-attributes": "condition:BABEL_8_BREAKING ? : workspace:^ (peer:@babel/core) (esm:default)",
     "@babel/plugin-syntax-unicode-sets-regex": "condition:BABEL_8_BREAKING ? : ^7.18.6",
     "@babel/plugin-transform-arrow-functions": "workspace:^",
     "@babel/plugin-transform-async-generator-functions": "workspace:^",
@@ -53,6 +41,7 @@
     "@babel/plugin-transform-destructuring": "workspace:^",
     "@babel/plugin-transform-dotall-regex": "workspace:^",
     "@babel/plugin-transform-duplicate-keys": "workspace:^",
+    "@babel/plugin-transform-duplicate-named-capturing-groups-regex": "workspace:^",
     "@babel/plugin-transform-dynamic-import": "workspace:^",
     "@babel/plugin-transform-exponentiation-operator": "workspace:^",
     "@babel/plugin-transform-export-namespace-from": "workspace:^",
@@ -79,6 +68,7 @@
     "@babel/plugin-transform-private-property-in-object": "workspace:^",
     "@babel/plugin-transform-property-literals": "workspace:^",
     "@babel/plugin-transform-regenerator": "workspace:^",
+    "@babel/plugin-transform-regexp-modifiers": "workspace:^",
     "@babel/plugin-transform-reserved-words": "workspace:^",
     "@babel/plugin-transform-shorthand-properties": "workspace:^",
     "@babel/plugin-transform-spread": "workspace:^",
@@ -90,11 +80,10 @@
     "@babel/plugin-transform-unicode-regex": "workspace:^",
     "@babel/plugin-transform-unicode-sets-regex": "workspace:^",
     "@babel/preset-modules": "0.1.6-no-external-plugins",
-    "@babel/types": "workspace:^",
-    "babel-plugin-polyfill-corejs2": "^0.4.5",
-    "babel-plugin-polyfill-corejs3": "^0.8.3",
-    "babel-plugin-polyfill-regenerator": "^0.5.2",
-    "core-js-compat": "^3.31.0",
+    "babel-plugin-polyfill-corejs2": "condition:BABEL_8_BREAKING ? : ^0.4.10 (peer:@babel/core) (esm:default)",
+    "babel-plugin-polyfill-corejs3": "^0.11.0",
+    "babel-plugin-polyfill-regenerator": "condition:BABEL_8_BREAKING ? : ^0.6.1 (peer:@babel/core) (esm:default)",
+    "core-js-compat": "^3.40.0",
     "semver": "condition:BABEL_8_BREAKING ? ^7.3.4 : ^6.3.1"
   },
   "peerDependencies": {
@@ -113,7 +102,7 @@
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {
@@ -121,15 +110,18 @@
       }
     ],
     "USE_ESM": [
+      null,
       {
-        "type": "module"
-      },
-      null
+        "type": "commonjs"
+      }
     ]
   },
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "type": "commonjs"
+  "type": "module"
 }

@@ -1,4 +1,4 @@
 {
-  "plugins": ["importAttributes"],
+  "createImportExpressions": true,
   "sourceType": "module"
 }

@@ -9,8 +9,8 @@ type Opts<Obj> = Partial<{
   [Prop in keyof Obj]: Obj[Prop] extends t.Node
     ? t.Node
     : Obj[Prop] extends t.Node[]
-    ? t.Node[]
-    : Obj[Prop];
+      ? t.Node[]
+      : Obj[Prop];
 }>;
 
 export interface NodePathAssertions {
@@ -307,6 +307,9 @@ export interface NodePathAssertions {
   assertImportDefaultSpecifier(
     opts?: Opts<t.ImportDefaultSpecifier>,
   ): asserts this is NodePath<t.ImportDefaultSpecifier>;
+  assertImportExpression(
+    opts?: Opts<t.ImportExpression>,
+  ): asserts this is NodePath<t.ImportExpression>;
   assertImportNamespaceSpecifier(
     opts?: Opts<t.ImportNamespaceSpecifier>,
   ): asserts this is NodePath<t.ImportNamespaceSpecifier>;
@@ -606,6 +609,9 @@ export interface NodePathAssertions {
   assertTSEntityName(
     opts?: Opts<t.TSEntityName>,
   ): asserts this is NodePath<t.TSEntityName>;
+  assertTSEnumBody(
+    opts?: Opts<t.TSEnumBody>,
+  ): asserts this is NodePath<t.TSEnumBody>;
   assertTSEnumDeclaration(
     opts?: Opts<t.TSEnumDeclaration>,
   ): asserts this is NodePath<t.TSEnumDeclaration>;
@@ -717,6 +723,9 @@ export interface NodePathAssertions {
   assertTSSymbolKeyword(
     opts?: Opts<t.TSSymbolKeyword>,
   ): asserts this is NodePath<t.TSSymbolKeyword>;
+  assertTSTemplateLiteralType(
+    opts?: Opts<t.TSTemplateLiteralType>,
+  ): asserts this is NodePath<t.TSTemplateLiteralType>;
   assertTSThisType(
     opts?: Opts<t.TSThisType>,
   ): asserts this is NodePath<t.TSThisType>;

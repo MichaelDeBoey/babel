@@ -55,6 +55,7 @@
           "value": "foo"
         },
         "declaration": null,
+        "attributes": [],
         "innerComments": [
           {
             "type": "CommentBlock",
@@ -64,7 +65,10 @@
         ]
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   },
   "comments": [
     {

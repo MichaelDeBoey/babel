@@ -1,9 +1,9 @@
 import { declare } from "@babel/helper-plugin-utils";
 import syntaxPipelineOperator from "@babel/plugin-syntax-pipeline-operator";
-import minimalVisitor from "./minimalVisitor";
-import hackVisitor from "./hackVisitor";
-import fsharpVisitor from "./fsharpVisitor";
-import smartVisitor from "./smartVisitor";
+import minimalVisitor from "./minimalVisitor.ts";
+import hackVisitor from "./hackVisitor.ts";
+import fsharpVisitor from "./fsharpVisitor.ts";
+import smartVisitor from "./smartVisitor.ts";
 import type { Options } from "@babel/plugin-syntax-pipeline-operator";
 
 const visitorsPerProposal = {
@@ -14,11 +14,9 @@ const visitorsPerProposal = {
 };
 
 export default declare((api, options: Options) => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
-  const { proposal } = options;
-
-  if (proposal === "smart") {
+  if (!process.env.BABEL_8_BREAKING && options.proposal === "smart") {
     console.warn(
       `The smart-mix pipe operator is deprecated. Use "proposal": "hack" instead.`,
     );

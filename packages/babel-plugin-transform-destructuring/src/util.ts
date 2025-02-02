@@ -1,7 +1,5 @@
-import { types as t } from "@babel/core";
-import type { File } from "@babel/core";
-import type { Scope, NodePath } from "@babel/traverse";
-import type { TraversalAncestors } from "@babel/types";
+import { types as t, template } from "@babel/core";
+import type { File, Scope, NodePath } from "@babel/core";
 
 function isPureVoid(node: t.Node) {
   return (
@@ -27,7 +25,7 @@ export function unshiftForXStatementBody(
     // var a = 0;for (const { #x: x, [a++]: y } of z) { const a = 1; }
     node.body = t.blockStatement([...newStatements, node.body]);
   } else {
-    node.body.body.unshift(...newStatements);
+    (node.body as t.BlockStatement).body.unshift(...newStatements);
   }
 }
 
@@ -61,7 +59,7 @@ interface ArrayUnpackVisitorState {
 // NOTE: This visitor is meant to be used via t.traverse
 const arrayUnpackVisitor = (
   node: t.Node,
-  ancestors: TraversalAncestors,
+  ancestors: t.TraversalAncestors,
   state: ArrayUnpackVisitorState,
 ) => {
   if (!ancestors.length) {
@@ -75,6 +73,7 @@ const arrayUnpackVisitor = (
     state.bindings[node.name]
   ) {
     state.deopt = true;
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw STOP_TRAVERSAL;
   }
 };
@@ -133,7 +132,7 @@ export class DestructuringTransformer {
     init: t.Expression,
   ) {
     let op = this.operator;
-    if (t.isMemberExpression(id)) op = "=";
+    if (t.isMemberExpression(id) || t.isOptionalMemberExpression(id)) op = "=";
 
     let node: t.ExpressionStatement | t.VariableDeclaration;
 
@@ -155,7 +154,10 @@ export class DestructuringTransformer {
       }
 
       node = t.variableDeclaration(this.kind, [
-        t.variableDeclarator(id, nodeInit),
+        t.variableDeclarator(
+          id as t.Identifier | t.ArrayPattern | t.ObjectPattern,
+          nodeInit,
+        ),
       ]);
     }
 
@@ -183,18 +185,60 @@ export class DestructuringTransformer {
     } else if (t.isAssignmentPattern(id)) {
       this.pushAssignmentPattern(id, init);
     } else {
-      this.nodes.push(this.buildVariableAssignment(id, init));
+      this.nodes.push(
+        this.buildVariableAssignment(
+          id as t.AssignmentExpression["left"],
+          init,
+        ),
+      );
     }
   }
 
-  toArray(node: t.Expression, count?: boolean | number) {
+  toArray(node: t.Expression, count?: false | number) {
     if (
       this.iterableIsArray ||
       (t.isIdentifier(node) && this.arrayRefSet.has(node.name))
     ) {
       return node;
     } else {
-      return this.scope.toArray(node, count, this.arrayLikeIsIterable);
+      const { scope, arrayLikeIsIterable } = this;
+
+      if (t.isIdentifier(node)) {
+        const binding = scope.getBinding(node.name);
+        if (binding?.constant && binding.path.isGenericType("Array")) {
+          return node;
+        }
+      }
+
+      if (t.isArrayExpression(node)) {
+        return node;
+      }
+
+      if (t.isIdentifier(node, { name: "arguments" })) {
+        return template.expression.ast`
+          Array.prototype.slice.call(${node})
+        `;
+      }
+
+      let helperName;
+      const args = [node];
+      if (typeof count === "number") {
+        args.push(t.numericLiteral(count));
+
+        // Used in array-rest to create an array from a subset of an iterable.
+        helperName = "slicedToArray";
+        // TODO if (this.hub.isLoose("es6.forOf")) helperName += "-loose";
+      } else {
+        // Used in array-rest to create an array
+        helperName = "toArray";
+      }
+
+      if (arrayLikeIsIterable) {
+        args.unshift(scope.path.hub.addHelper(helperName));
+        helperName = "maybeArrayLike";
+      }
+
+      return t.callExpression(scope.path.hub.addHelper(helperName), args);
     }
   }
 
@@ -273,7 +317,7 @@ export class DestructuringTransformer {
   pushObjectProperty(prop: t.ObjectProperty, propRef: t.Expression) {
     if (t.isLiteral(prop.key)) prop.computed = true;
 
-    const pattern = prop.value as t.LVal;
+    const pattern = prop.value as t.AssignmentExpression["left"];
     const objRef = t.memberExpression(
       t.cloneNode(propRef),
       prop.key,
@@ -703,7 +747,7 @@ export function convertVariableDeclaration(
 }
 
 export function convertAssignmentExpression(
-  path: NodePath<t.AssignmentExpression>,
+  path: NodePath<t.AssignmentExpression & { left: t.Pattern }>,
   addHelper: File["addHelper"],
   arrayLikeIsIterable: boolean,
   iterableIsArray: boolean,

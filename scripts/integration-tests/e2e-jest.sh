@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #==============================================================================#
 #                                  SETUP                                       #
@@ -20,10 +20,10 @@ cd /tmp/jest || exit
 
 # Update @babel/* dependencies
 bump_deps="$root/utils/bump-babel-dependencies.js"
-node "$bump_deps"
+node "$bump_deps" resolutions
 for d in ./packages/*/
 do
-  (cd "$d"; node "$bump_deps")
+  (cd "$d"; node "$bump_deps" resolutions)
 done
 
 #==============================================================================#
@@ -74,6 +74,8 @@ yarn build
 rm -f packages/jest-transform/src/__tests__/ScriptTransformer.test.ts
 rm -f packages/jest-transform/src/__tests__/__snapshots__/ScriptTransformer.test.ts.snap
 
+# Suppress REQUIRE_ESM warning from Node.js 22.12
+export NODE_OPTIONS="--disable-warning=ExperimentalWarning"
 # The full test suite takes about 20mins on CircleCI. We run only a few of them
 # to speed it up.
 # The goals of this e2e test are:
@@ -82,5 +84,6 @@ rm -f packages/jest-transform/src/__tests__/__snapshots__/ScriptTransformer.test
 CI=true yarn jest --color --maxWorkers=2 --config jest.config.mjs packages
 CI=true yarn jest --color --maxWorkers=2 --config jest.config.mjs e2e/__tests__/babel
 CI=true yarn jest --color --maxWorkers=2 --config jest.config.mjs e2e/__tests__/transform
+unset NODE_OPTIONS
 
 cleanup

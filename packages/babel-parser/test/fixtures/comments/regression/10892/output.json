@@ -35,6 +35,7 @@
           },
           "value": "bar"
         },
+        "attributes": [],
         "trailingComments": [
           {
             "type": "CommentBlock",
@@ -60,7 +61,10 @@
         ]
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   },
   "comments": [
     {

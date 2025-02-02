@@ -1,8 +1,7 @@
 import { declare } from "@babel/helper-plugin-utils";
 import { skipTransparentExprWrappers } from "@babel/helper-skip-transparent-expression-wrappers";
-import type { File } from "@babel/core";
-import { types as t } from "@babel/core";
-import type { NodePath, Scope } from "@babel/traverse";
+import { types as t, template } from "@babel/core";
+import type { File, NodePath, Scope } from "@babel/core";
 
 type ListElement = t.SpreadElement | t.Expression;
 
@@ -12,7 +11,7 @@ export interface Options {
 }
 
 export default declare((api, options: Options) => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   const iterableIsArray = api.assumption("iterableIsArray") ?? options.loose;
   const arrayLikeIsIterable =
@@ -28,12 +27,39 @@ export default declare((api, options: Options) => {
     ) {
       return spread.argument;
     } else {
-      return scope.toArray(spread.argument, true, arrayLikeIsIterable);
+      const node = spread.argument;
+
+      if (t.isIdentifier(node)) {
+        const binding = scope.getBinding(node.name);
+        if (binding?.constant && binding.path.isGenericType("Array")) {
+          return node;
+        }
+      }
+
+      if (t.isArrayExpression(node)) {
+        return node;
+      }
+
+      if (t.isIdentifier(node, { name: "arguments" })) {
+        return template.expression.ast`
+          Array.prototype.slice.call(${node})
+        `;
+      }
+
+      const args = [node];
+      let helperName = "toConsumableArray";
+
+      if (arrayLikeIsIterable) {
+        args.unshift(scope.path.hub.addHelper(helperName));
+        helperName = "maybeArrayLike";
+      }
+
+      return t.callExpression(scope.path.hub.addHelper(helperName), args);
     }
   }
 
   function hasHole(spread: t.ArrayExpression): boolean {
-    return spread.elements.some(el => el === null);
+    return spread.elements.includes(null);
   }
 
   function hasSpread(nodes: Array<t.Node>): boolean {

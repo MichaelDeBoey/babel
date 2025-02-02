@@ -11,8 +11,8 @@ import {
 } from "@babel/types";
 import type * as t from "@babel/types";
 
-import type { TemplateReplacements } from "./options";
-import type { Metadata, Placeholder } from "./parse";
+import type { TemplateReplacements } from "./options.ts";
+import type { Metadata, Placeholder } from "./parse.ts";
 
 export default function populatePlaceholders(
   metadata: Metadata,
@@ -22,9 +22,7 @@ export default function populatePlaceholders(
 
   if (replacements) {
     metadata.placeholders.forEach(placeholder => {
-      if (
-        !Object.prototype.hasOwnProperty.call(replacements, placeholder.name)
-      ) {
+      if (!Object.hasOwn(replacements, placeholder.name)) {
         const placeholderName = placeholder.name;
 
         throw new Error(
@@ -123,10 +121,26 @@ function applyReplacement(
     }
   }
 
+  function set(parent: any, key: any, value: any) {
+    const node = parent[key] as t.Node;
+    parent[key] = value;
+    if (node.type === "Identifier" || node.type === "Placeholder") {
+      if (node.typeAnnotation) {
+        value.typeAnnotation = node.typeAnnotation;
+      }
+      if (node.optional) {
+        value.optional = node.optional;
+      }
+      if (node.decorators) {
+        value.decorators = node.decorators;
+      }
+    }
+  }
+
   if (index === undefined) {
     validate(parent, key, replacement);
 
-    (parent as any)[key] = replacement;
+    set(parent, key, replacement);
   } else {
     const items: Array<t.Node> = (parent as any)[key].slice();
 
@@ -136,10 +150,10 @@ function applyReplacement(
       } else if (Array.isArray(replacement)) {
         items.splice(index, 1, ...replacement);
       } else {
-        items[index] = replacement;
+        set(items, index, replacement);
       }
     } else {
-      items[index] = replacement;
+      set(items, index, replacement);
     }
 
     validate(parent, key, items);

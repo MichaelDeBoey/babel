@@ -1,11 +1,10 @@
-import presetStage3 from "./preset-stage-3";
-import * as babelPlugins from "./generated/plugins";
+import presetStage3 from "./preset-stage-3.ts";
+import * as babelPlugins from "./generated/plugins.ts";
 
 export default (_: any, opts: any = {}) => {
   const {
-    pipelineProposal = "minimal",
+    pipelineProposal = process.env.BABEL_8_BREAKING ? "fsharp" : "minimal",
     pipelineTopicToken = "%",
-    recordAndTupleSyntax = "hash",
   } = opts;
 
   return {
@@ -18,12 +17,16 @@ export default (_: any, opts: any = {}) => {
       ],
       babelPlugins.proposalFunctionSent,
       babelPlugins.proposalThrowExpressions,
-      [
-        babelPlugins.proposalRecordAndTuple,
-        { syntaxType: recordAndTupleSyntax },
-      ],
+      process.env.BABEL_8_BREAKING
+        ? babelPlugins.proposalRecordAndTuple
+        : [
+            babelPlugins.proposalRecordAndTuple,
+            { syntaxType: opts.recordAndTupleSyntax ?? "hash" },
+          ],
       babelPlugins.syntaxModuleBlocks,
-      babelPlugins.syntaxImportReflection,
+      ...(process.env.BABEL_8_BREAKING
+        ? []
+        : [babelPlugins.syntaxImportReflection]),
     ],
   };
 };

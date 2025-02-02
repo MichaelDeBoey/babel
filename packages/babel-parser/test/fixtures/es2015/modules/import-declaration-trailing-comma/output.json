@@ -54,6 +54,7 @@
           },
           "value": "foo"
         },
+        "attributes": [],
         "innerComments": [
           {
             "type": "CommentBlock",
@@ -63,7 +64,10 @@
         ]
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   },
   "comments": [
     {

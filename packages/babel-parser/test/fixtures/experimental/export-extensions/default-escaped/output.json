@@ -29,9 +29,13 @@
             "raw": "\"async\""
           },
           "value": "async"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

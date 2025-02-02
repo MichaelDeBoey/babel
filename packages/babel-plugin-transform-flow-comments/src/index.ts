@@ -1,11 +1,10 @@
 import { declare } from "@babel/helper-plugin-utils";
 import syntaxFlow from "@babel/plugin-syntax-flow";
-import { types as t } from "@babel/core";
+import { types as t, type NodePath } from "@babel/core";
 import generateCode from "@babel/generator";
-import type { NodePath } from "@babel/traverse";
 
 export default declare(api => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   function commentFromString(comment: string | t.Comment): t.Comment {
     return typeof comment === "string"
@@ -278,18 +277,27 @@ export default declare(api => {
             comments = [];
           }
 
-          if (node.superTypeParameters) {
-            const superTypeParameters = path.get(
-              "superTypeParameters",
+          // superTypeParameters is for compatibility with Babel 7
+          if (
+            process.env.BABEL_8_BREAKING
+              ? // @ts-ignore(Babel 7 vs Babel 8) Renamed
+                node.superTypeArguments
+              : // @ts-ignore(Babel 7 vs Babel 8) Renamed
+                node.superTypeParameters
+          ) {
+            const superTypeArguments = path.get(
+              process.env.BABEL_8_BREAKING
+                ? "superTypeArguments"
+                : "superTypeParameters",
             ) as NodePath<t.TypeParameterInstantiation>;
             comments.push(
               generateComment(
-                superTypeParameters,
+                superTypeArguments,
                 // @ts-expect-error optional is not in TypeParameterInstantiation
-                superTypeParameters.node.optional,
+                superTypeArguments.node.optional,
               ),
             );
-            superTypeParameters.remove();
+            superTypeArguments.remove();
           }
         }
 

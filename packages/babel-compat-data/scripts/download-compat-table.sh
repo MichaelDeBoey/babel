@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-COMPAT_TABLE_COMMIT=61b6d112578c21827e702360553424b4effabdaa
+COMPAT_TABLE_COMMIT=b3427ba3a2d6fd2dc427c3dfcf191832f634eb06
 GIT_HEAD=build/compat-table/.git/HEAD
 
 if [ -d "build/compat-table" ]; then
@@ -16,5 +16,5 @@ fi
 
 rm -rf build/compat-table
 mkdir -p build
-git clone --single-branch --shallow-since=2020-04-01 https://github.com/kangax/compat-table.git build/compat-table
+git clone --single-branch --shallow-since=2024-04-01 https://github.com/compat-table/compat-table.git build/compat-table
 cd build/compat-table && git checkout -q $COMPAT_TABLE_COMMIT

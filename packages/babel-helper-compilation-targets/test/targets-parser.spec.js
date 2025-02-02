@@ -1,9 +1,11 @@
 import browserslist from "browserslist";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-
 import _getTargets from "../lib/index.js";
 const getTargets = _getTargets.default || _getTargets;
+import { itBabel8, itBabel7, commonJS } from "$repo-utils";
+const { require } = commonJS(import.meta.url);
+
+// Strip prerelease tag
+const nodeVersion = process.versions.node.split("-")[0];
 
 describe("getTargets", () => {
   it("parses", () => {
@@ -60,6 +62,28 @@ describe("getTargets", () => {
     // chrome 4 is the first release of chrome,
     // it should never be included in this query
     expect(parseFloat(actual.chrome)).toBeGreaterThan(4);
+  });
+
+  describe("when process.env.BROWSERSLIST is specified", () => {
+    afterAll(() => {
+      delete process.env.BROWSERSLIST;
+    });
+    it("should provide fallback to any targets option", () => {
+      process.env.BROWSERSLIST = "firefox 2";
+      expect(getTargets()).toEqual({ firefox: "2.0.0" });
+    });
+  });
+
+  describe("when process.env.BROWSERSLIST_CONFIG is specified", () => {
+    afterAll(() => {
+      delete process.env.BROWSERSLIST_CONFIG;
+    });
+    it("should provide fallback to any targets option", () => {
+      process.env.BROWSERSLIST_CONFIG = require.resolve(
+        "./fixtures/.browserslistrc",
+      );
+      expect(getTargets()).toEqual({ firefox: "30.0.0", chrome: "70.0.0" });
+    });
   });
 
   describe("validation", () => {
@@ -134,7 +158,7 @@ describe("getTargets", () => {
           browsers: "current node, chrome 55, opera 42",
         }),
       ).toEqual({
-        node: process.versions.node,
+        node: nodeVersion,
         chrome: "55.0.0",
         opera: "42.0.0",
       });
@@ -154,7 +178,7 @@ describe("getTargets", () => {
           browsers: ["ie 11", "current node", "chrome 55"],
         }),
       ).toEqual({
-        node: process.versions.node,
+        node: nodeVersion,
         chrome: "55.0.0",
         ie: "11.0.0",
       });
@@ -263,11 +287,7 @@ describe("getTargets", () => {
             esmodules: "intersect",
           },
           {
-            configPath: join(
-              dirname(fileURLToPath(import.meta.url)),
-              "fixtures",
-              "foo.js",
-            ),
+            configPath: require.resolve("./fixtures/.browserslistrc"),
           },
         ),
       ).toMatchSnapshot();
@@ -284,7 +304,7 @@ describe("getTargets", () => {
       ).toMatchSnapshot();
     });
 
-    (process.env.BABEL_8_BREAKING ? it.skip : it)(
+    itBabel7(
       "'intersect' behaves like 'true' if no browsers are specified - Babel 7",
       () => {
         expect(getTargets({ esmodules: "intersect" })).toEqual(
@@ -293,7 +313,7 @@ describe("getTargets", () => {
       },
     );
 
-    (process.env.BABEL_8_BREAKING ? it.skip : it)(
+    itBabel7(
       "'browsers' option will have no effect if it is an empty array - Babel 7",
       () => {
         expect(getTargets({ esmodules: "intersect", browsers: [] })).toEqual(
@@ -318,7 +338,7 @@ describe("getTargets", () => {
       ).toThrow();
     });
 
-    (process.env.BABEL_8_BREAKING ? it : it.skip)(
+    itBabel8(
       "'intersect' behaves like no-op if no browsers are specified",
       () => {
         expect(getTargets({ esmodules: "intersect" })).toEqual(getTargets({}));
@@ -344,7 +364,7 @@ describe("getTargets", () => {
           node: true,
         }),
       ).toEqual({
-        node: process.versions.node,
+        node: nodeVersion,
       });
     });
   });

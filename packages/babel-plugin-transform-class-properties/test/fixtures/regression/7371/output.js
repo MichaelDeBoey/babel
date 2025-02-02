@@ -25,7 +25,7 @@ class Obj {
 // ensure superClass is still transformed
 class SuperClass extends Obj {
   constructor() {
-    class B extends ((super(), babelHelpers.defineProperty(this, "field", 1)), Obj) {
+    class B extends (super(), babelHelpers.defineProperty(this, "field", 1), Obj) {
       constructor() {
         super();
         expect(this.field).toBeUndefined();
@@ -45,7 +45,7 @@ class ComputedMethod extends Obj {
         super();
         expect(this.field).toBeUndefined();
       }
-      [(super(), babelHelpers.defineProperty(this, "field", 1), this)]() {}
+      [(super(), babelHelpers.defineProperty(this, "field", 1))]() {}
     }
     expect(this.field).toBe(1);
     new B();
@@ -57,7 +57,7 @@ new ComputedMethod();
 class ComputedField extends Obj {
   constructor() {
     let _ref;
-    _ref = (super(), babelHelpers.defineProperty(this, "field", 1), this);
+    _ref = (super(), babelHelpers.defineProperty(this, "field", 1));
     class B extends Obj {
       constructor() {
         super();

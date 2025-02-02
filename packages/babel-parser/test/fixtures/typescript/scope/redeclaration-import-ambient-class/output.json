@@ -30,7 +30,8 @@
             "raw": "'./somewhere.js'"
           },
           "value": "./somewhere.js"
-        }
+        },
+        "attributes": []
       },
       {
         "type": "ClassDeclaration",
@@ -49,6 +50,9 @@
         }
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

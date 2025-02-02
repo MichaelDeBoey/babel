@@ -38,9 +38,13 @@
             "raw": "'baz'"
           },
           "value": "baz"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

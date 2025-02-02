@@ -1,8 +1,8 @@
 import fs from "fs/promises";
-import chalk from "chalk";
+import colors from "picocolors";
 import { parse as parser } from "../../../packages/babel-parser/lib/index.js";
 
-const dot = chalk.gray(".");
+const dot = colors.gray(".");
 
 class TestRunner {
   constructor({
@@ -81,13 +81,15 @@ class TestRunner {
   async updateAllowlist(summary) {
     const contents = await fs.readFile(this.allowlist, "utf-8");
 
-    const toRemove = summary.disallowed.success
-      .concat(summary.disallowed.failure)
-      .map(test => test.id)
-      .concat(summary.unrecognized);
+    const toRemove = new Set(
+      summary.disallowed.success
+        .concat(summary.disallowed.failure)
+        .map(test => test.id)
+        .concat(summary.unrecognized)
+    );
 
-    const allowedFalsePositiveIds = summary.allowed.falsePositive.map(
-      test => test.id
+    const allowedFalsePositiveIds = new Set(
+      summary.allowed.falsePositive.map(test => test.id)
     );
 
     let invalidWithoutError = [];
@@ -95,8 +97,8 @@ class TestRunner {
 
     for (const line of contents.split("\n")) {
       const testId = line.replace(/#.*$/, "").trim();
-      if (testId && !toRemove.includes(testId)) {
-        if (allowedFalsePositiveIds.includes(testId)) {
+      if (testId && !toRemove.has(testId)) {
+        if (allowedFalsePositiveIds.has(testId)) {
           invalidWithoutError.push(line);
         } else {
           validWithError.push(line);
@@ -260,11 +262,11 @@ class TestRunner {
 
     console.log(`Testing complete (${summary.count} tests).`);
     console.log("Summary:");
-    console.log(chalk.green(goodnews.join("\n").replace(/^/gm, " ✔ ")));
+    console.log(colors.green(goodnews.join("\n").replace(/^/gm, " ✔ ")));
 
     if (!summary.passed) {
       console.log("");
-      console.log(chalk.red(badnews.join("\n").replace(/^/gm, " ✘ ")));
+      console.log(colors.red(badnews.join("\n").replace(/^/gm, " ✘ ")));
       console.log("");
       console.log("Details:");
       console.log(badnewsDetails.join("\n").replace(/^/gm, "   "));

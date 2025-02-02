@@ -1257,6 +1257,37 @@ describe("verify", () => {
     });
   });
 
+  describe("decorators #16239", () => {
+    it("field decorators count as usage for no-unused-vars", () => {
+      verifyAndAssertMessages(
+        `
+          import { tracked } from '@glimmer/tracking';
+
+          class State {
+            @tracked depth = 0;
+          }
+
+          new State();
+        `,
+        { "no-unused-vars": 1 },
+      );
+    });
+    it("method decorators count as usage for no-unused-vars", () => {
+      verifyAndAssertMessages(
+        `
+          import { tracked } from '@glimmer/tracking';
+
+          class State {
+            @tracked depth() { return 0; }
+          }
+
+          new State();
+        `,
+        { "no-unused-vars": 1 },
+      );
+    });
+  });
+
   it("detects minimal no-unused-vars case #120", () => {
     verifyAndAssertMessages("var unused;", { "no-unused-vars": 1 }, [
       "1:5 'unused' is defined but never used. no-unused-vars",
@@ -1507,7 +1538,7 @@ describe("verify", () => {
       ],
       "script",
       {
-        env: {},
+        globals: {},
         parserOptions: {
           ecmaVersion: 6,
           sourceType: "script",
@@ -1524,7 +1555,7 @@ describe("verify", () => {
       [],
       "script",
       {
-        env: {},
+        globals: {},
         parserOptions: {
           ecmaVersion: 6,
           sourceType: "script",
@@ -1658,7 +1689,7 @@ describe("verify", () => {
         return hasGlobal;
         }
       `,
-      { "newline-before-return": 1 },
+      { "newline-before-return": 1, "no-console": 1 },
     );
   });
 
@@ -1749,6 +1780,17 @@ describe("verify", () => {
           { "no-unused-vars": 1 },
         );
       });
+
+      it("no-use-before-define allows referencing the class in a field", () => {
+        verifyAndAssertMessages(
+          `
+            class C {
+              d = C.name;
+            }
+          `,
+          { "no-use-before-define": 1 },
+        );
+      });
     });
 
     describe("private field declarations", () => {
@@ -1774,12 +1816,58 @@ describe("verify", () => {
         );
       });
 
+      it("no-use-before-define allows referencing the class in a field", () => {
+        verifyAndAssertMessages(
+          `
+            class C {
+              #d = C.name;
+            }
+          `,
+          { "no-use-before-define": 1 },
+        );
+      });
+
       it("type annotations should work", () => {
         verifyAndAssertMessages(
           `class C {
             #p: Array<number>
           }`,
           { "no-undef": 1 },
+        );
+      });
+    });
+
+    describe("accessor declarations", () => {
+      it("should not be undefined", () => {
+        verifyAndAssertMessages(
+          `
+              class C {
+                accessor d = 1;
+              }
+          `,
+          { "no-undef": 1 },
+        );
+      });
+
+      it("should not be unused", () => {
+        verifyAndAssertMessages(
+          `
+              export class C {
+                accessor d = 1;
+              }
+          `,
+          { "no-unused-vars": 1 },
+        );
+      });
+
+      it("no-use-before-define allows referencing the class in an accessor", () => {
+        verifyAndAssertMessages(
+          `
+            class C {
+              accessor d = C.name;
+            }
+          `,
+          { "no-use-before-define": 1 },
         );
       });
     });
