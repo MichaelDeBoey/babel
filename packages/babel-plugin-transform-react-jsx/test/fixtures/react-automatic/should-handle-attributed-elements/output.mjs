@@ -1,5 +1,4 @@
-import { jsxs as _jsxs } from "react/jsx-runtime";
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
 var HelloMessage = React.createClass({
   displayName: "HelloMessage",
   render: function () {
@@ -8,7 +7,7 @@ var HelloMessage = React.createClass({
     });
   }
 });
-React.render( /*#__PURE__*/_jsx(HelloMessage, {
+React.render(/*#__PURE__*/_jsx(HelloMessage, {
   name: /*#__PURE__*/_jsx("span", {
     children: "Sebastian"
   })

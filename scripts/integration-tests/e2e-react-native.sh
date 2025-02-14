@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #==============================================================================#
 #                                  SETUP                                       #
@@ -30,7 +30,7 @@ startLocalRegistry "$root"/verdaccio-config.yml
 
 # Create a React Native project
 cd /tmp
-npx react-native init rnbabel
+YARN_ENABLE_IMMUTABLE_INSTALLS=false npx @react-native-community/cli init rnbabel
 cd rnbabel
 
 if [ "$BABEL_8_BREAKING" = true ] ; then
@@ -41,7 +41,10 @@ if [ "$BABEL_8_BREAKING" = true ] ; then
   npx replace '(?=plugins:.*?flow-strip-types)' 'exclude: [isTypeScriptSource, isTSXSource],' node_modules/metro-react-native-babel-preset/src/configs/main.js
 fi
 
+node "$root"/utils/bump-babel-dependencies.js resolutions
+
 # Build the project
+npm install
 npx react-native bundle --entry-file index.js --bundle-output output.js
 
 cleanup

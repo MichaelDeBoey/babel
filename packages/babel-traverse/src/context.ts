@@ -1,9 +1,10 @@
-import NodePath from "./path";
+import NodePath from "./path/index.ts";
 import { VISITOR_KEYS } from "@babel/types";
-import type Scope from "./scope";
-import type { ExplodedTraverseOptions } from ".";
+import type Scope from "./scope/index.ts";
+import type { ExplodedTraverseOptions } from "./index.ts";
 import type * as t from "@babel/types";
-import type { Visitor } from "./types";
+import type { Visitor } from "./types.ts";
+import { popContext, pushContext, resync } from "./path/context.ts";
 
 export default class TraversalContext<S = unknown> {
   constructor(
@@ -118,10 +119,13 @@ export default class TraversalContext<S = unknown> {
 
     const visited = new WeakSet();
     let stop = false;
+    let visitIndex = 0;
 
     // visit the queue
-    for (const path of queue) {
-      path.resync();
+    for (; visitIndex < queue.length; ) {
+      const path = queue[visitIndex];
+      visitIndex++;
+      resync.call(path);
 
       if (
         path.contexts.length === 0 ||
@@ -130,7 +134,7 @@ export default class TraversalContext<S = unknown> {
         // The context might already have been pushed when this path was inserted and queued.
         // If we always re-pushed here, we could get duplicates and risk leaving contexts
         // on the stack after the traversal has completed, which could break things.
-        path.pushContext(this);
+        pushContext.call(path, this);
       }
 
       // this path no longer belongs to the tree
@@ -154,9 +158,9 @@ export default class TraversalContext<S = unknown> {
       }
     }
 
-    // clear queue
-    for (const path of queue) {
-      path.popContext();
+    // pop contexts
+    for (let i = 0; i < visitIndex; i++) {
+      popContext.call(queue[i]);
     }
 
     // clear queue

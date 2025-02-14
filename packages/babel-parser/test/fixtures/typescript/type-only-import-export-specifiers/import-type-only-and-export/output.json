@@ -36,7 +36,8 @@
             "raw": "\"mod\""
           },
           "value": "mod"
-        }
+        },
+        "attributes": []
       },
       {
         "type": "ExportNamedDeclaration",
@@ -63,6 +64,9 @@
         "declaration": null
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

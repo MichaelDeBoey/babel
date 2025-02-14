@@ -136,6 +136,14 @@ describe("@babel/template", function () {
       }).toThrow('Unknown substitution "ANOTHER_ID" given');
     });
 
+    it("should throw if VariableDeclaration without init", () => {
+      expect(() => {
+        template(`
+          const %%ID%%;
+        `)({ ID: t.identifier("someIdent") });
+      }).toThrow("Missing initializer in destructuring declaration. (3:22)");
+    });
+
     it("should throw if placeholders are not given explicit values", () => {
       expect(() => {
         template(`
@@ -215,46 +223,46 @@ describe("@babel/template", function () {
 
     it("should return assertions in ImportDeclaration when using .ast", () => {
       const result = template.ast(
-        `import json from "./foo.json" assert { type: "json" };`,
+        `import json from "./foo.json" with { type: "json" };`,
         {
-          plugins: ["importAssertions"],
+          plugins: ["importAttributes"],
         },
       );
 
-      expect(result.assertions[0].type).toBe("ImportAttribute");
+      expect(result.attributes[0].type).toBe("ImportAttribute");
     });
 
     it("should return assertions in ExportNamedDeclaration when using .ast", () => {
       const result = template.ast(
-        `export { default as foo2 } from "foo.json" assert { type: "json" };`,
+        `export { default as foo2 } from "foo.json" with { type: "json" };`,
         {
-          plugins: ["importAssertions"],
+          plugins: ["importAttributes"],
         },
       );
 
-      expect(result.assertions[0].type).toBe("ImportAttribute");
+      expect(result.attributes[0].type).toBe("ImportAttribute");
     });
 
     it("should return assertions in ExportDefaultDeclaration when using .ast", () => {
       const result = template.ast(
-        `export foo2 from "foo.json" assert { type: "json" };`,
+        `export foo2 from "foo.json" with { type: "json" };`,
         {
-          plugins: ["importAssertions", "exportDefaultFrom"],
+          plugins: ["importAttributes", "exportDefaultFrom"],
         },
       );
 
-      expect(result.assertions[0].type).toBe("ImportAttribute");
+      expect(result.attributes[0].type).toBe("ImportAttribute");
     });
 
     it("should return assertions in ExportAllDeclaration when using .ast", () => {
       const result = template.ast(
-        `export * from "foo.json" assert { type: "json" };`,
+        `export * from "foo.json" with { type: "json" };`,
         {
-          plugins: ["importAssertions"],
+          plugins: ["importAttributes"],
         },
       );
 
-      expect(result.assertions[0].type).toBe("ImportAttribute");
+      expect(result.attributes[0].type).toBe("ImportAttribute");
     });
 
     it("should replace JSX placeholder", () => {
@@ -466,12 +474,94 @@ describe("@babel/template", function () {
       expect(generator(output).code).toMatchInlineSnapshot(`"const x = 7;"`);
     });
 
+    it("works in const declaration inside for-of without init", () => {
+      const output = template("for (const %%LHS%% of %%RHS%%){}")({
+        LHS: t.ObjectPattern([
+          t.ObjectProperty(t.identifier("x"), t.identifier("x")),
+        ]),
+        RHS: t.identifier("y"),
+      });
+      expect(generator(output).code).toMatchInlineSnapshot(`
+        "for (const {
+          x: x
+        } of y) {}"
+      `);
+    });
+
     it("works in let declaration", () => {
       const output = template("let %%LHS%% = %%RHS%%")({
         LHS: t.identifier("x"),
         RHS: t.numericLiteral(7),
       });
       expect(generator(output).code).toMatchInlineSnapshot(`"let x = 7;"`);
+    });
+
+    it("should keep node props", () => {
+      const outputs = [
+        template({ plugins: ["typescript"] }).ast`
+          const ${t.identifier("greeting")}: string = 'Hello';
+        `,
+        template({ plugins: ["typescript"] }).ast`
+          var ${t.objectPattern([])}: string = x;
+        `,
+        template({ plugins: ["decorators-legacy"] }).ast`
+          class X {
+            f(@dec ${t.identifier("x")}) {}
+          }
+        `,
+        template({ plugins: ["typescript"] }).ast`
+          function f(${t.identifier("x")}?) {}
+        `,
+        template({ plugins: ["typescript"] }).ast`
+          function f(${Object.assign(t.identifier("x"), { optional: true })}: string) {}
+        `,
+        template({ plugins: ["decorators-legacy"] }).ast`
+          class X {
+            f(@dec ${Object.assign(t.identifier("x"), { optional: true })}) {}
+          }
+        `,
+        template({ plugins: ["typescript"] }).ast`
+          function f(${Object.assign(t.identifier("x"), { typeAnnotation: t.tsTypeAnnotation(t.tsStringKeyword()) })}: number) {}
+        `,
+      ];
+
+      expect(outputs.map(ast => generator(ast).code)).toMatchInlineSnapshot(`
+        Array [
+          "const greeting: string = 'Hello';",
+          "var {}: string = x;",
+          "class X {
+          f(@dec
+          x) {}
+        }",
+          "function f(x?) {}",
+          "function f(x?: string) {}",
+          "class X {
+          f(@dec
+          x?) {}
+        }",
+          "function f(x: number) {}",
+        ]
+      `);
+    });
+
+    it("should keep node props with syntacticPlaceholders", () => {
+      const outputs = [
+        template({ plugins: ["typescript"] })(`const %%x%%: string = 'Hello'`)({
+          x: t.identifier("x"),
+        }),
+        template({ plugins: ["typescript"] })(`
+          var %%x%%: string = x;
+        `)({
+          x: t.objectPattern([]),
+        }),
+      ];
+
+      expect(outputs.map(ast => generator(ast).code)).toMatchInlineSnapshot(`
+        Array [
+          "const x: string = 'Hello';",
+          "var {}: string = x;",
+        ]
+      `);
     });
   });
 });

@@ -2,7 +2,7 @@
  * This file is auto-generated! Do not modify it directly.
  * To re-generate run 'yarn gulp generate-standalone'
  */
-import makeNoopPlugin from "../make-noop-plugin";
+import makeNoopPlugin from "../make-noop-plugin.ts";
 import externalHelpers from "@babel/plugin-external-helpers";
 import syntaxDecimal from "@babel/plugin-syntax-decimal";
 import syntaxDecorators from "@babel/plugin-syntax-decorators";
@@ -16,8 +16,9 @@ import syntaxFunctionSent from "@babel/plugin-syntax-function-sent";
 import syntaxImportAssertions from "@babel/plugin-syntax-import-assertions";
 import syntaxImportAttributes from "@babel/plugin-syntax-import-attributes";
 import syntaxImportReflection from "@babel/plugin-syntax-import-reflection";
-import syntaxModuleBlocks from "@babel/plugin-syntax-module-blocks";
 import syntaxJsx from "@babel/plugin-syntax-jsx";
+import syntaxModuleBlocks from "@babel/plugin-syntax-module-blocks";
+import syntaxOptionalChainingAssign from "@babel/plugin-syntax-optional-chaining-assign";
 import syntaxPipelineOperator from "@babel/plugin-syntax-pipeline-operator";
 import syntaxRecordAndTuple from "@babel/plugin-syntax-record-and-tuple";
 import syntaxTypescript from "@babel/plugin-syntax-typescript";
@@ -27,7 +28,7 @@ import transformClassStaticBlock from "@babel/plugin-transform-class-static-bloc
 import proposalDecorators from "@babel/plugin-proposal-decorators";
 import proposalDestructuringPrivate from "@babel/plugin-proposal-destructuring-private";
 import proposalDoExpressions from "@babel/plugin-proposal-do-expressions";
-import proposalDuplicateNamedCapturingGroupsRegex from "@babel/plugin-proposal-duplicate-named-capturing-groups-regex";
+import transformDuplicateNamedCapturingGroupsRegex from "@babel/plugin-transform-duplicate-named-capturing-groups-regex";
 import transformDynamicImport from "@babel/plugin-transform-dynamic-import";
 import proposalExportDefaultFrom from "@babel/plugin-proposal-export-default-from";
 import transformExportNamespaceFrom from "@babel/plugin-transform-export-namespace-from";
@@ -40,11 +41,12 @@ import transformNumericSeparator from "@babel/plugin-transform-numeric-separator
 import transformObjectRestSpread from "@babel/plugin-transform-object-rest-spread";
 import transformOptionalCatchBinding from "@babel/plugin-transform-optional-catch-binding";
 import transformOptionalChaining from "@babel/plugin-transform-optional-chaining";
+import proposalOptionalChainingAssign from "@babel/plugin-proposal-optional-chaining-assign";
 import proposalPipelineOperator from "@babel/plugin-proposal-pipeline-operator";
 import transformPrivateMethods from "@babel/plugin-transform-private-methods";
 import transformPrivatePropertyInObject from "@babel/plugin-transform-private-property-in-object";
 import proposalRecordAndTuple from "@babel/plugin-proposal-record-and-tuple";
-import proposalRegexpModifiers from "@babel/plugin-proposal-regexp-modifiers";
+import transformRegexpModifiers from "@babel/plugin-transform-regexp-modifiers";
 import proposalThrowExpressions from "@babel/plugin-proposal-throw-expressions";
 import transformUnicodePropertyRegex from "@babel/plugin-transform-unicode-property-regex";
 import transformUnicodeSetsRegex from "@babel/plugin-transform-unicode-sets-regex";
@@ -64,6 +66,7 @@ import transformForOf from "@babel/plugin-transform-for-of";
 import transformFunctionName from "@babel/plugin-transform-function-name";
 import transformInstanceof from "@babel/plugin-transform-instanceof";
 import transformJscript from "@babel/plugin-transform-jscript";
+import transformJsonModules from "@babel/plugin-transform-json-modules";
 import transformLiterals from "@babel/plugin-transform-literals";
 import transformMemberExpressionLiterals from "@babel/plugin-transform-member-expression-literals";
 import transformModulesAmd from "@babel/plugin-transform-modules-amd";
@@ -100,6 +103,7 @@ import transformTypescript from "@babel/plugin-transform-typescript";
 import transformUnicodeEscapes from "@babel/plugin-transform-unicode-escapes";
 import transformUnicodeRegex from "@babel/plugin-transform-unicode-regex";
 import proposalExplicitResourceManagement from "@babel/plugin-proposal-explicit-resource-management";
+import proposalImportDefer from "@babel/plugin-proposal-import-defer";
 export const syntaxAsyncGenerators = makeNoopPlugin(),
   syntaxClassProperties = makeNoopPlugin(),
   syntaxClassStaticBlock = makeNoopPlugin(),
@@ -121,8 +125,9 @@ export {
   syntaxImportAssertions,
   syntaxImportAttributes,
   syntaxImportReflection,
-  syntaxModuleBlocks,
   syntaxJsx,
+  syntaxModuleBlocks,
+  syntaxOptionalChainingAssign,
   syntaxPipelineOperator,
   syntaxRecordAndTuple,
   syntaxTypescript,
@@ -132,7 +137,7 @@ export {
   proposalDecorators,
   proposalDestructuringPrivate,
   proposalDoExpressions,
-  proposalDuplicateNamedCapturingGroupsRegex,
+  transformDuplicateNamedCapturingGroupsRegex,
   transformDynamicImport,
   proposalExportDefaultFrom,
   transformExportNamespaceFrom,
@@ -145,11 +150,12 @@ export {
   transformObjectRestSpread,
   transformOptionalCatchBinding,
   transformOptionalChaining,
+  proposalOptionalChainingAssign,
   proposalPipelineOperator,
   transformPrivateMethods,
   transformPrivatePropertyInObject,
   proposalRecordAndTuple,
-  proposalRegexpModifiers,
+  transformRegexpModifiers,
   proposalThrowExpressions,
   transformUnicodePropertyRegex,
   transformUnicodeSetsRegex,
@@ -169,6 +175,7 @@ export {
   transformFunctionName,
   transformInstanceof,
   transformJscript,
+  transformJsonModules,
   transformLiterals,
   transformMemberExpressionLiterals,
   transformModulesAmd,
@@ -205,6 +212,7 @@ export {
   transformUnicodeEscapes,
   transformUnicodeRegex,
   proposalExplicitResourceManagement,
+  proposalImportDefer,
 };
 export const all: { [k: string]: any } = {
   "syntax-async-generators": syntaxAsyncGenerators,
@@ -227,8 +235,9 @@ export const all: { [k: string]: any } = {
   "syntax-import-assertions": syntaxImportAssertions,
   "syntax-import-attributes": syntaxImportAttributes,
   "syntax-import-reflection": syntaxImportReflection,
-  "syntax-module-blocks": syntaxModuleBlocks,
   "syntax-jsx": syntaxJsx,
+  "syntax-module-blocks": syntaxModuleBlocks,
+  "syntax-optional-chaining-assign": syntaxOptionalChainingAssign,
   "syntax-pipeline-operator": syntaxPipelineOperator,
   "syntax-record-and-tuple": syntaxRecordAndTuple,
   "syntax-typescript": syntaxTypescript,
@@ -238,8 +247,8 @@ export const all: { [k: string]: any } = {
   "proposal-decorators": proposalDecorators,
   "proposal-destructuring-private": proposalDestructuringPrivate,
   "proposal-do-expressions": proposalDoExpressions,
-  "proposal-duplicate-named-capturing-groups-regex":
-    proposalDuplicateNamedCapturingGroupsRegex,
+  "transform-duplicate-named-capturing-groups-regex":
+    transformDuplicateNamedCapturingGroupsRegex,
   "transform-dynamic-import": transformDynamicImport,
   "proposal-export-default-from": proposalExportDefaultFrom,
   "transform-export-namespace-from": transformExportNamespaceFrom,
@@ -252,11 +261,12 @@ export const all: { [k: string]: any } = {
   "transform-object-rest-spread": transformObjectRestSpread,
   "transform-optional-catch-binding": transformOptionalCatchBinding,
   "transform-optional-chaining": transformOptionalChaining,
+  "proposal-optional-chaining-assign": proposalOptionalChainingAssign,
   "proposal-pipeline-operator": proposalPipelineOperator,
   "transform-private-methods": transformPrivateMethods,
   "transform-private-property-in-object": transformPrivatePropertyInObject,
   "proposal-record-and-tuple": proposalRecordAndTuple,
-  "proposal-regexp-modifiers": proposalRegexpModifiers,
+  "transform-regexp-modifiers": transformRegexpModifiers,
   "proposal-throw-expressions": proposalThrowExpressions,
   "transform-unicode-property-regex": transformUnicodePropertyRegex,
   "transform-unicode-sets-regex": transformUnicodeSetsRegex,
@@ -276,6 +286,7 @@ export const all: { [k: string]: any } = {
   "transform-function-name": transformFunctionName,
   "transform-instanceof": transformInstanceof,
   "transform-jscript": transformJscript,
+  "transform-json-modules": transformJsonModules,
   "transform-literals": transformLiterals,
   "transform-member-expression-literals": transformMemberExpressionLiterals,
   "transform-modules-amd": transformModulesAmd,
@@ -313,4 +324,5 @@ export const all: { [k: string]: any } = {
   "transform-unicode-escapes": transformUnicodeEscapes,
   "transform-unicode-regex": transformUnicodeRegex,
   "proposal-explicit-resource-management": proposalExplicitResourceManagement,
+  "proposal-import-defer": proposalImportDefer,
 };

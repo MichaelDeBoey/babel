@@ -1,6 +1,6 @@
 {
   "name": "@babel/plugin-proposal-destructuring-private",
-  "version": "7.22.5",
+  "version": "7.26.0",
   "description": "Transform destructuring private proposal",
   "repository": {
     "type": "git",
@@ -17,7 +17,6 @@
   ],
   "dependencies": {
     "@babel/helper-plugin-utils": "workspace:^",
-    "@babel/plugin-syntax-destructuring-private": "workspace:^",
     "@babel/plugin-transform-destructuring": "workspace:^",
     "@babel/plugin-transform-parameters": "workspace:^"
   },
@@ -27,6 +26,9 @@
   "devDependencies": {
     "@babel/core": "workspace:^",
     "@babel/helper-plugin-test-runner": "workspace:^",
+    "@babel/plugin-syntax-decimal": "condition:BABEL_8_BREAKING ? : ^7.24.7",
+    "@babel/plugin-transform-class-properties": "workspace:^",
+    "@babel/plugin-transform-class-static-block": "workspace:^",
     "@babel/traverse": "workspace:^",
     "@babel/types": "workspace:^"
   },
@@ -36,21 +38,24 @@
   },
   "author": "The Babel Team (https://babel.dev/team)",
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "type": "commonjs",
+  "type": "module",
   "conditions": {
     "USE_ESM": [
+      null,
       {
-        "type": "module"
-      },
-      null
+        "type": "commonjs"
+      }
     ],
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {}

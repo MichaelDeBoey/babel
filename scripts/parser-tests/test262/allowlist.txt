@@ -1,9 +1,12 @@
-# 2 invalid programs did not produce a parsing error
-
-language/import/import-assertions/json-invalid.js(default)
-language/import/import-assertions/json-invalid.js(strict mode)
+# 0 invalid programs did not produce a parsing error
 
 
-# 0 valid programs produced a parsing error
 
 
+# 5 valid programs produced a parsing error
+
+staging/sm/String/make-normalize-generateddata-input.py(default)
+staging/sm/String/make-normalize-generateddata-input.py(strict mode)
+staging/sm/extensions/inc-dec-functioncall.js(default)
+staging/sm/regress/regress-609617.js(default)
+staging/sm/statements/for-of-iterator-close.js(default)

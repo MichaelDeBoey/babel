@@ -1,11 +1,27 @@
-import type Printer from "../printer";
+import type Printer from "../printer.ts";
 import { isAssignmentPattern, isIdentifier } from "@babel/types";
 import type * as t from "@babel/types";
 import jsesc from "jsesc";
 
+let lastRawIdentNode: t.Identifier | null = null;
+let lastRawIdentResult: string = "";
+export function _getRawIdentifier(this: Printer, node: t.Identifier) {
+  if (node === lastRawIdentNode) return lastRawIdentResult;
+  lastRawIdentNode = node;
+
+  const { name } = node;
+  const token = this.tokenMap.find(node, tok => tok.value === name);
+  if (token) {
+    lastRawIdentResult = this._originalCode.slice(token.start, token.end);
+    return lastRawIdentResult;
+  }
+  return (lastRawIdentResult = node.name);
+}
+
 export function Identifier(this: Printer, node: t.Identifier) {
   this.sourceIdentifierName(node.loc?.identifierName || node.name);
-  this.word(node.name);
+
+  this.word(this.tokenMap ? this._getRawIdentifier(node) : node.name);
 }
 
 export function ArgumentPlaceholder(this: Printer) {
@@ -14,7 +30,7 @@ export function ArgumentPlaceholder(this: Printer) {
 
 export function RestElement(this: Printer, node: t.RestElement) {
   this.token("...");
-  this.print(node.argument, node);
+  this.print(node.argument);
 }
 
 export { RestElement as SpreadElement };
@@ -25,9 +41,11 @@ export function ObjectExpression(this: Printer, node: t.ObjectExpression) {
   this.token("{");
 
   if (props.length) {
+    const exit = this.enterDelimited();
     this.space();
-    this.printList(props, node, { indent: true, statement: true });
+    this.printList(props, this.shouldPrintTrailingComma("}"), true, true);
     this.space();
+    exit();
   }
 
   this.sourceWithOffset("end", node.loc, -1);
@@ -38,18 +56,18 @@ export function ObjectExpression(this: Printer, node: t.ObjectExpression) {
 export { ObjectExpression as ObjectPattern };
 
 export function ObjectMethod(this: Printer, node: t.ObjectMethod) {
-  this.printJoin(node.decorators, node);
+  this.printJoin(node.decorators);
   this._methodHead(node);
   this.space();
-  this.print(node.body, node);
+  this.print(node.body);
 }
 
 export function ObjectProperty(this: Printer, node: t.ObjectProperty) {
-  this.printJoin(node.decorators, node);
+  this.printJoin(node.decorators);
 
   if (node.computed) {
     this.token("[");
-    this.print(node.key, node);
+    this.print(node.key);
     this.token("]");
   } else {
     // print `({ foo: foo = 5 } = {})` as `({ foo = 5 } = {});`
@@ -59,11 +77,11 @@ export function ObjectProperty(this: Printer, node: t.ObjectProperty) {
       // @ts-expect-error todo(flow->ts) `.name` does not exist on some types in union
       node.key.name === node.value.left.name
     ) {
-      this.print(node.value, node);
+      this.print(node.value);
       return;
     }
 
-    this.print(node.key, node);
+    this.print(node.key);
 
     // shorthand!
     if (
@@ -78,7 +96,7 @@ export function ObjectProperty(this: Printer, node: t.ObjectProperty) {
 
   this.token(":");
   this.space();
-  this.print(node.value, node);
+  this.print(node.value);
 }
 
 export function ArrayExpression(this: Printer, node: t.ArrayExpression) {
@@ -87,21 +105,27 @@ export function ArrayExpression(this: Printer, node: t.ArrayExpression) {
 
   this.token("[");
 
+  const exit = this.enterDelimited();
+
   for (let i = 0; i < elems.length; i++) {
     const elem = elems[i];
     if (elem) {
       if (i > 0) this.space();
-      this.print(elem, node);
-      if (i < len - 1) this.token(",");
+      this.print(elem);
+      if (i < len - 1 || this.shouldPrintTrailingComma("]")) {
+        this.token(",", false, i);
+      }
     } else {
       // If the array expression ends with a hole, that hole
       // will be ignored by the interpreter, but if it ends with
       // two (or more) holes, we need to write out two (or more)
       // commas so that the resulting code is interpreted with
       // both (all) of the holes.
-      this.token(",");
+      this.token(",", false, i);
     }
   }
+
+  exit();
 
   this.token("]");
 }
@@ -113,28 +137,33 @@ export function RecordExpression(this: Printer, node: t.RecordExpression) {
 
   let startToken;
   let endToken;
-  if (this.format.recordAndTupleSyntaxType === "bar") {
-    startToken = "{|";
-    endToken = "|}";
-  } else if (
-    this.format.recordAndTupleSyntaxType !== "hash" &&
-    this.format.recordAndTupleSyntaxType != null
-  ) {
-    throw new Error(
-      `The "recordAndTupleSyntaxType" generator option must be "bar" or "hash" (${JSON.stringify(
-        this.format.recordAndTupleSyntaxType,
-      )} received).`,
-    );
-  } else {
+  if (process.env.BABEL_8_BREAKING) {
     startToken = "#{";
     endToken = "}";
+  } else {
+    if (this.format.recordAndTupleSyntaxType === "bar") {
+      startToken = "{|";
+      endToken = "|}";
+    } else if (
+      this.format.recordAndTupleSyntaxType !== "hash" &&
+      this.format.recordAndTupleSyntaxType != null
+    ) {
+      throw new Error(
+        `The "recordAndTupleSyntaxType" generator option must be "bar" or "hash" (${JSON.stringify(
+          this.format.recordAndTupleSyntaxType,
+        )} received).`,
+      );
+    } else {
+      startToken = "#{";
+      endToken = "}";
+    }
   }
 
   this.token(startToken);
 
   if (props.length) {
     this.space();
-    this.printList(props, node, { indent: true, statement: true });
+    this.printList(props, this.shouldPrintTrailingComma(endToken), true, true);
     this.space();
   }
   this.token(endToken);
@@ -146,16 +175,21 @@ export function TupleExpression(this: Printer, node: t.TupleExpression) {
 
   let startToken;
   let endToken;
-  if (this.format.recordAndTupleSyntaxType === "bar") {
-    startToken = "[|";
-    endToken = "|]";
-  } else if (this.format.recordAndTupleSyntaxType === "hash") {
+  if (process.env.BABEL_8_BREAKING) {
     startToken = "#[";
     endToken = "]";
   } else {
-    throw new Error(
-      `${this.format.recordAndTupleSyntaxType} is not a valid recordAndTuple syntax type`,
-    );
+    if (this.format.recordAndTupleSyntaxType === "bar") {
+      startToken = "[|";
+      endToken = "|]";
+    } else if (this.format.recordAndTupleSyntaxType === "hash") {
+      startToken = "#[";
+      endToken = "]";
+    } else {
+      throw new Error(
+        `${this.format.recordAndTupleSyntaxType} is not a valid recordAndTuple syntax type`,
+      );
+    }
   }
 
   this.token(startToken);
@@ -164,8 +198,10 @@ export function TupleExpression(this: Printer, node: t.TupleExpression) {
     const elem = elems[i];
     if (elem) {
       if (i > 0) this.space();
-      this.print(elem, node);
-      if (i < len - 1) this.token(",");
+      this.print(elem);
+      if (i < len - 1 || this.shouldPrintTrailingComma(endToken)) {
+        this.token(",", false, i);
+      }
     }
   }
 
@@ -187,15 +223,16 @@ export function NullLiteral(this: Printer) {
 export function NumericLiteral(this: Printer, node: t.NumericLiteral) {
   const raw = this.getPossibleRaw(node);
   const opts = this.format.jsescOption;
-  const value = node.value + "";
+  const value = node.value;
+  const str = value + "";
   if (opts.numbers) {
-    this.number(jsesc(node.value, opts));
+    this.number(jsesc(value, opts), value);
   } else if (raw == null) {
-    this.number(value); // normalize
+    this.number(str, value); // normalize
   } else if (this.format.minified) {
-    this.number(raw.length < value.length ? raw : value);
+    this.number(raw.length < str.length ? raw : str, value);
   } else {
-    this.number(raw);
+    this.number(raw, value);
   }
 }
 
@@ -220,15 +257,6 @@ export function BigIntLiteral(this: Printer, node: t.BigIntLiteral) {
   this.word(node.value + "n");
 }
 
-export function DecimalLiteral(this: Printer, node: t.DecimalLiteral) {
-  const raw = this.getPossibleRaw(node);
-  if (!this.format.minified && raw !== undefined) {
-    this.word(raw);
-    return;
-  }
-  this.word(node.value + "m");
-}
-
 // Hack pipe operator
 const validTopicTokenSet = new Set(["^^", "@@", "^", "%", "#"]);
 export function TopicReference(this: Printer) {
@@ -251,14 +279,14 @@ export function PipelineTopicExpression(
   this: Printer,
   node: t.PipelineTopicExpression,
 ) {
-  this.print(node.expression, node);
+  this.print(node.expression);
 }
 
 export function PipelineBareFunction(
   this: Printer,
   node: t.PipelineBareFunction,
 ) {
-  this.print(node.callee, node);
+  this.print(node.callee);
 }
 
 export function PipelinePrimaryTopicReference(this: Printer) {

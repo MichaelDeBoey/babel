@@ -1,5 +1,5 @@
 import type { types as t } from "@babel/core";
-import { FEATURES, hasFeature } from "./features";
+import { FEATURES, hasFeature } from "./features.ts";
 
 import type { RegexpuOptions } from "regexpu-core";
 
@@ -7,13 +7,8 @@ export function generateRegexpuOptions(
   pattern: string,
   toTransform: number,
 ): RegexpuOptions {
-  type Experimental = 1;
-
-  const feat = <Stability extends 0 | 1 = 0>(
-    name: keyof typeof FEATURES,
-    ok: "transform" | (Stability extends 0 ? never : "parse") = "transform",
-  ) => {
-    return hasFeature(toTransform, FEATURES[name]) ? ok : false;
+  const feat = (name: keyof typeof FEATURES) => {
+    return hasFeature(toTransform, FEATURES[name]) ? "transform" : false;
   };
 
   const featDuplicateNamedGroups = (): "transform" | false => {
@@ -33,7 +28,7 @@ export function generateRegexpuOptions(
 
   return {
     unicodeFlag: feat("unicodeFlag"),
-    unicodeSetsFlag: feat<Experimental>("unicodeSetsFlag") || "parse",
+    unicodeSetsFlag: feat("unicodeSetsFlag"),
     dotAllFlag: feat("dotAllFlag"),
     unicodePropertyEscapes: feat("unicodePropertyEscape"),
     namedGroups: feat("namedCaptureGroups") || featDuplicateNamedGroups(),
@@ -56,7 +51,7 @@ export function canSkipRegexpu(
     if (options.unicodeFlag === "transform") return false;
     if (
       options.unicodePropertyEscapes === "transform" &&
-      /\\[pP]{/.test(pattern)
+      /\\p\{/i.test(pattern)
     ) {
       return false;
     }

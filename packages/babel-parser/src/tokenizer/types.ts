@@ -1,4 +1,4 @@
-import { types as tc, type TokContext } from "./context";
+import { types as tc, type TokContext } from "./context.ts";
 // ## Token types
 
 // The assignment of fine-grained, information-carrying type objects
@@ -284,6 +284,7 @@ export const tt = {
   _assert: createKeywordLike("assert", { startsExpr }),
   _async: createKeywordLike("async", { startsExpr }),
   _await: createKeywordLike("await", { startsExpr }),
+  _defer: createKeywordLike("defer", { startsExpr }),
   _from: createKeywordLike("from", { startsExpr }),
   _get: createKeywordLike("get", { startsExpr }),
   _let: createKeywordLike("let", { startsExpr }),
@@ -291,6 +292,7 @@ export const tt = {
   _of: createKeywordLike("of", { startsExpr }),
   _sent: createKeywordLike("sent", { startsExpr }),
   _set: createKeywordLike("set", { startsExpr }),
+  _source: createKeywordLike("source", { startsExpr }),
   _static: createKeywordLike("static", { startsExpr }),
   _using: createKeywordLike("using", { startsExpr }),
   _yield: createKeywordLike("yield", { startsExpr }),
@@ -326,11 +328,15 @@ export const tt = {
   _opaque: createKeywordLike("opaque", { startsExpr }),
   // end: isFlowInterfaceOrTypeOrOpaque
   name: createToken("name", { startsExpr }),
+
+  // placeholder plugin
+  placeholder: createToken("%%", { startsExpr: true }),
   // end: isIdentifier
 
   string: createToken("string", { startsExpr }),
   num: createToken("num", { startsExpr }),
   bigint: createToken("bigint", { startsExpr }),
+  // TODO: Remove this in Babel 8
   decimal: createToken("decimal", { startsExpr }),
   // end: isLiteralPropertyName
   regexp: createToken("regexp", { startsExpr }),
@@ -342,13 +348,10 @@ export const tt = {
   jsxText: createToken("jsxText", { beforeExpr: true }),
   jsxTagStart: createToken("jsxTagStart", { startsExpr: true }),
   jsxTagEnd: createToken("jsxTagEnd"),
-
-  // placeholder plugin
-  placeholder: createToken("%%", { startsExpr: true }),
 } as const;
 
 export function tokenIsIdentifier(token: TokenType): boolean {
-  return token >= tt._as && token <= tt.name;
+  return token >= tt._as && token <= tt.placeholder;
 }
 
 export function tokenKeywordOrIdentifierIsKeyword(token: TokenType): boolean {
@@ -358,7 +361,7 @@ export function tokenKeywordOrIdentifierIsKeyword(token: TokenType): boolean {
 }
 
 export function tokenIsKeywordOrIdentifier(token: TokenType): boolean {
-  return token >= tt._in && token <= tt.name;
+  return token >= tt._in && token <= tt.placeholder;
 }
 
 export function tokenIsLiteralPropertyName(token: TokenType): boolean {

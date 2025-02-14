@@ -1,6 +1,6 @@
 {
   "name": "@babel/plugin-transform-object-rest-spread",
-  "version": "7.22.5",
+  "version": "7.25.9",
   "description": "Compile object rest and spread to ES5",
   "repository": {
     "type": "git",
@@ -17,10 +17,8 @@
     "babel-plugin"
   ],
   "dependencies": {
-    "@babel/compat-data": "workspace:^",
     "@babel/helper-compilation-targets": "workspace:^",
     "@babel/helper-plugin-utils": "workspace:^",
-    "@babel/plugin-syntax-object-rest-spread": "condition:BABEL_8_BREAKING ? : ^7.8.3",
     "@babel/plugin-transform-parameters": "workspace:^"
   },
   "peerDependencies": {
@@ -39,7 +37,7 @@
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {
@@ -47,15 +45,18 @@
       }
     ],
     "USE_ESM": [
+      null,
       {
-        "type": "module"
-      },
-      null
+        "type": "commonjs"
+      }
     ]
   },
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "type": "commonjs"
+  "type": "module"
 }

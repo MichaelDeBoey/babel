@@ -39,9 +39,13 @@
             "raw": "\"mod\""
           },
           "value": "mod"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

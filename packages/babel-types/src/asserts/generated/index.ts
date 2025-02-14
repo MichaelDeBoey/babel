@@ -2,9 +2,9 @@
  * This file is auto-generated! Do not modify it directly.
  * To re-generate run 'make build'
  */
-import is from "../../validators/is";
-import type * as t from "../..";
-import deprecationWarning from "../../utils/deprecationWarning";
+import is from "../../validators/is.ts";
+import type * as t from "../../index.ts";
+import deprecationWarning from "../../utils/deprecationWarning.ts";
 
 function assert(type: string, node: any, opts?: any): void {
   if (!is(type, node, opts)) {
@@ -410,6 +410,12 @@ export function assertImportSpecifier(
   opts?: object | null,
 ): asserts node is t.ImportSpecifier {
   assert("ImportSpecifier", node, opts);
+}
+export function assertImportExpression(
+  node: object | null | undefined,
+  opts?: object | null,
+): asserts node is t.ImportExpression {
+  assert("ImportExpression", node, opts);
 }
 export function assertMetaProperty(
   node: object | null | undefined,
@@ -1371,6 +1377,12 @@ export function assertTSMappedType(
 ): asserts node is t.TSMappedType {
   assert("TSMappedType", node, opts);
 }
+export function assertTSTemplateLiteralType(
+  node: object | null | undefined,
+  opts?: object | null,
+): asserts node is t.TSTemplateLiteralType {
+  assert("TSTemplateLiteralType", node, opts);
+}
 export function assertTSLiteralType(
   node: object | null | undefined,
   opts?: object | null,
@@ -1424,6 +1436,12 @@ export function assertTSTypeAssertion(
   opts?: object | null,
 ): asserts node is t.TSTypeAssertion {
   assert("TSTypeAssertion", node, opts);
+}
+export function assertTSEnumBody(
+  node: object | null | undefined,
+  opts?: object | null,
+): asserts node is t.TSEnumBody {
+  assert("TSEnumBody", node, opts);
 }
 export function assertTSEnumDeclaration(
   node: object | null | undefined,

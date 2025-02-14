@@ -1,6 +1,6 @@
 import { declare } from "@babel/helper-plugin-utils";
 
-const SUPPORTED_MODULES = ["commonjs", "amd", "systemjs"];
+const SUPPORTED_MODULES = new Set(["commonjs", "amd", "systemjs"]);
 
 const MODULES_NOT_FOUND = `\
 @babel/plugin-transform-dynamic-import depends on a modules
@@ -16,14 +16,13 @@ bundler handle dynamic imports.
 `;
 
 export default declare(api => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   return {
     name: "transform-dynamic-import",
-    inherits: USE_ESM
+    manipulateOptions: process.env.BABEL_8_BREAKING
       ? undefined
-      : // eslint-disable-next-line no-restricted-globals
-        require("@babel/plugin-syntax-dynamic-import").default,
+      : (_, parser) => parser.plugins.push("dynamicImport"),
 
     pre() {
       // We keep using the old name, for compatibility with older
@@ -38,7 +37,7 @@ export default declare(api => {
       Program() {
         const modules = this.file.get("@babel/plugin-transform-modules-*");
 
-        if (!SUPPORTED_MODULES.includes(modules)) {
+        if (!SUPPORTED_MODULES.has(modules)) {
           throw new Error(MODULES_NOT_FOUND);
         }
       },

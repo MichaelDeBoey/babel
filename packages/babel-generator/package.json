@@ -1,6 +1,6 @@
 {
   "name": "@babel/generator",
-  "version": "7.22.10",
+  "version": "7.26.9",
   "description": "Turns an AST into code.",
   "author": "The Babel Team (https://babel.dev/team)",
   "license": "MIT",
@@ -19,14 +19,16 @@
     "lib"
   ],
   "dependencies": {
+    "@babel/parser": "workspace:^",
     "@babel/types": "workspace:^",
-    "@jridgewell/gen-mapping": "^0.3.2",
-    "@jridgewell/trace-mapping": "^0.3.17",
-    "jsesc": "condition: BABEL_8_BREAKING ? ^3.0.2 : ^2.5.1"
+    "@jridgewell/gen-mapping": "^0.3.5",
+    "@jridgewell/trace-mapping": "^0.3.25",
+    "jsesc": "^3.0.2"
   },
   "devDependencies": {
+    "@babel/core": "workspace:^",
     "@babel/helper-fixtures": "workspace:^",
-    "@babel/parser": "workspace:^",
+    "@babel/plugin-transform-typescript": "workspace:^",
     "@jridgewell/sourcemap-codec": "^1.4.15",
     "@types/jsesc": "^2.5.0",
     "charcodes": "^0.2.0"
@@ -38,7 +40,7 @@
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {
@@ -46,15 +48,18 @@
       }
     ],
     "USE_ESM": [
+      null,
       {
-        "type": "module"
-      },
-      null
+        "type": "commonjs"
+      }
     ]
   },
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "type": "commonjs"
+  "type": "module"
 }

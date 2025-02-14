@@ -1,30 +1,49 @@
-import type { Options } from "./options";
+import type { Options } from "./options.ts";
 import {
-  hasPlugin,
   validatePlugins,
   mixinPluginNames,
   mixinPlugins,
-  type PluginList,
-} from "./plugin-utils";
-import type {
+} from "./plugin-utils.ts";
+export type {
   PluginConfig as ParserPlugin,
+  DecoratorsPluginOptions,
   FlowPluginOptions,
-  RecordAndTuplePluginOptions,
   PipelineOperatorPluginOptions,
-} from "./typings";
-import Parser from "./parser";
+  RecordAndTuplePluginOptions,
+  TypeScriptPluginOptions,
+} from "./typings.ts";
+import Parser, { type PluginsMap } from "./parser/index.ts";
 
-import type { ExportedTokenType } from "./tokenizer/types";
+import type { ExportedTokenType } from "./tokenizer/types.ts";
 import {
   getExportedToken,
   tt as internalTokenTypes,
   type InternalTokenTypes,
-} from "./tokenizer/types";
-import "./tokenizer/context";
+} from "./tokenizer/types.ts";
+export type { Token } from "./tokenizer/index.ts";
 
-import type { Expression, File } from "./types";
+// TODO: Rather than type-casting the internal AST definitions to the
+// @babel/types one, we should actually unify them.
+import type { Expression, File } from "@babel/types";
+export type { Expression, File };
 
-export function parse(input: string, options?: Options): File {
+export type ParserOptions = Partial<Options>;
+
+export interface ParseError {
+  code: string;
+  reasonCode: string;
+}
+export type ParseResult<Result extends File | Expression = File> = Result & {
+  errors: null | ParseError[];
+};
+
+/**
+ * Parse the provided code as an entire ECMAScript program.
+ */
+export function parse(
+  input: string,
+  options?: ParserOptions,
+): ParseResult<File> {
   if (options?.sourceType === "unambiguous") {
     options = {
       ...options,
@@ -35,7 +54,7 @@ export function parse(input: string, options?: Options): File {
       const ast = parser.parse();
 
       if (parser.sawUnambiguousESM) {
-        return ast;
+        return ast as unknown as ParseResult<File>;
       }
 
       if (parser.ambiguousScriptDifferentAst) {
@@ -46,7 +65,10 @@ export function parse(input: string, options?: Options): File {
         // can be parsed either as an AwaitExpression, or as two ExpressionStatements.
         try {
           options.sourceType = "script";
-          return getParser(options, input).parse();
+          return getParser(
+            options,
+            input,
+          ).parse() as unknown as ParseResult<File>;
         } catch {}
       } else {
         // This is both a valid module and a valid script, but
@@ -54,26 +76,32 @@ export function parse(input: string, options?: Options): File {
         ast.program.sourceType = "script";
       }
 
-      return ast;
+      return ast as unknown as ParseResult<File>;
     } catch (moduleError) {
       try {
         options.sourceType = "script";
-        return getParser(options, input).parse();
+        return getParser(
+          options,
+          input,
+        ).parse() as unknown as ParseResult<File>;
       } catch {}
 
       throw moduleError;
     }
   } else {
-    return getParser(options, input).parse();
+    return getParser(options, input).parse() as unknown as ParseResult<File>;
   }
 }
 
-export function parseExpression(input: string, options?: Options): Expression {
+export function parseExpression(
+  input: string,
+  options?: ParserOptions,
+): ParseResult<Expression> {
   const parser = getParser(options, input);
   if (parser.options.strictMode) {
     parser.state.strict = true;
   }
-  return parser.getExpression();
+  return parser.getExpression() as unknown as ParseResult<Expression>;
 }
 
 function generateExportedTokenTypes(
@@ -92,41 +120,47 @@ export const tokTypes = generateExportedTokenTypes(internalTokenTypes);
 
 function getParser(options: Options | undefined | null, input: string): Parser {
   let cls = Parser;
+  const pluginsMap: PluginsMap = new Map();
   if (options?.plugins) {
-    validatePlugins(options.plugins);
-    cls = getParserClass(options.plugins);
+    for (const plugin of options.plugins) {
+      let name, opts;
+      if (typeof plugin === "string") {
+        name = plugin;
+      } else {
+        [name, opts] = plugin;
+      }
+      if (!pluginsMap.has(name)) {
+        pluginsMap.set(name, opts || {});
+      }
+    }
+    validatePlugins(pluginsMap);
+    cls = getParserClass(pluginsMap);
   }
 
-  return new cls(options, input);
+  return new cls(options, input, pluginsMap);
 }
 
-const parserClassCache: { [key: string]: { new (...args: any): Parser } } = {};
+const parserClassCache = new Map<string, new (...args: any) => Parser>();
 
 /** Get a Parser class with plugins applied. */
-function getParserClass(pluginsFromOptions: PluginList): {
-  new (...args: any): Parser;
-} {
-  const pluginList = mixinPluginNames.filter(name =>
-    hasPlugin(pluginsFromOptions, name),
-  );
-
-  const key = pluginList.join("/");
-  let cls = parserClassCache[key];
+function getParserClass(
+  pluginsMap: Map<string, any>,
+): new (...args: any) => Parser {
+  const pluginList = [];
+  for (const name of mixinPluginNames) {
+    if (pluginsMap.has(name)) {
+      pluginList.push(name);
+    }
+  }
+  const key = pluginList.join("|");
+  let cls = parserClassCache.get(key);
   if (!cls) {
     cls = Parser;
     for (const plugin of pluginList) {
       // @ts-expect-error todo(flow->ts)
       cls = mixinPlugins[plugin](cls);
     }
-    parserClassCache[key] = cls;
+    parserClassCache.set(key, cls);
   }
   return cls;
 }
-
-export type {
-  FlowPluginOptions,
-  ParserPlugin,
-  PipelineOperatorPluginOptions,
-  RecordAndTuplePluginOptions,
-};
-export type ParserOptions = Partial<Options>;

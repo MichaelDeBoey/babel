@@ -4,29 +4,27 @@ let Hello = /*#__PURE__*/function () {
   function Hello() {
     babelHelpers.classCallCheck(this, Hello);
   }
-  babelHelpers.createClass(Hello, [{
+  return babelHelpers.createClass(Hello, [{
     key: "toString",
     value: function toString() {
       return 'hello';
     }
   }]);
-  return Hello;
 }();
 let Outer = /*#__PURE__*/function (_Hello) {
-  babelHelpers.inherits(Outer, _Hello);
-  var _super = babelHelpers.createSuper(Outer);
   function Outer() {
-    let _babelHelpers$get$cal;
-    var _thisSuper, _this;
+    let _babelHelpers$superPr;
+    var _this;
     babelHelpers.classCallCheck(this, Outer);
-    _this = _super.call(this);
-    _babelHelpers$get$cal = babelHelpers.get((_thisSuper = babelHelpers.assertThisInitialized(_this), babelHelpers.getPrototypeOf(Outer.prototype)), "toString", _thisSuper).call(_thisSuper);
+    _this = babelHelpers.callSuper(this, Outer);
+    _babelHelpers$superPr = babelHelpers.superPropGet((_this, Outer), "toString", _this, 3)([]);
     let Inner = /*#__PURE__*/babelHelpers.createClass(function Inner() {
       babelHelpers.classCallCheck(this, Inner);
-      babelHelpers.defineProperty(this, _babelHelpers$get$cal, 'hello');
+      babelHelpers.defineProperty(this, _babelHelpers$superPr, 'hello');
     });
     return babelHelpers.possibleConstructorReturn(_this, new Inner());
   }
+  babelHelpers.inherits(Outer, _Hello);
   return babelHelpers.createClass(Outer);
 }(Hello);
 expect(new Outer().hello).toBe('hello');

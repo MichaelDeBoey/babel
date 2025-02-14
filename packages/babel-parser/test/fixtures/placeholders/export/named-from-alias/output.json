@@ -40,9 +40,13 @@
           },
           "value": "file"
         },
-        "declaration": null
+        "declaration": null,
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

@@ -1,30 +1,32 @@
 {
   "name": "@babel/standalone",
-  "version": "7.22.10",
+  "version": "7.26.9",
   "description": "Standalone build of Babel for use in non-Node.js environments.",
   "main": "./babel.js",
   "files": [
-    "babel.js",
-    "babel.js.map",
-    "babel.min.js",
-    "babel.min.js.map"
+    "./babel.js",
+    "./babel.js.map",
+    "./babel.min.js",
+    "./babel.min.js.map"
   ],
   "devDependencies": {
     "@babel/core": "workspace:^",
+    "@babel/generator": "workspace:^",
+    "@babel/parser": "workspace:^",
     "@babel/plugin-external-helpers": "workspace:^",
     "@babel/plugin-proposal-decorators": "workspace:^",
     "@babel/plugin-proposal-destructuring-private": "workspace:^",
     "@babel/plugin-proposal-do-expressions": "workspace:^",
-    "@babel/plugin-proposal-duplicate-named-capturing-groups-regex": "workspace:^",
     "@babel/plugin-proposal-explicit-resource-management": "workspace:^",
     "@babel/plugin-proposal-export-default-from": "workspace:^",
     "@babel/plugin-proposal-function-bind": "workspace:^",
     "@babel/plugin-proposal-function-sent": "workspace:^",
+    "@babel/plugin-proposal-import-defer": "workspace:^",
+    "@babel/plugin-proposal-optional-chaining-assign": "workspace:^",
     "@babel/plugin-proposal-pipeline-operator": "workspace:^",
     "@babel/plugin-proposal-record-and-tuple": "workspace:^",
-    "@babel/plugin-proposal-regexp-modifiers": "workspace:^",
     "@babel/plugin-proposal-throw-expressions": "workspace:^",
-    "@babel/plugin-syntax-decimal": "workspace:^",
+    "@babel/plugin-syntax-decimal": "^7.24.7",
     "@babel/plugin-syntax-decorators": "workspace:^",
     "@babel/plugin-syntax-destructuring-private": "workspace:^",
     "@babel/plugin-syntax-do-expressions": "workspace:^",
@@ -35,9 +37,10 @@
     "@babel/plugin-syntax-function-sent": "workspace:^",
     "@babel/plugin-syntax-import-assertions": "workspace:^",
     "@babel/plugin-syntax-import-attributes": "workspace:^",
-    "@babel/plugin-syntax-import-reflection": "workspace:^",
+    "@babel/plugin-syntax-import-reflection": "^7.24.7",
     "@babel/plugin-syntax-jsx": "workspace:^",
     "@babel/plugin-syntax-module-blocks": "workspace:^",
+    "@babel/plugin-syntax-optional-chaining-assign": "workspace:^",
     "@babel/plugin-syntax-pipeline-operator": "workspace:^",
     "@babel/plugin-syntax-record-and-tuple": "workspace:^",
     "@babel/plugin-syntax-typescript": "workspace:^",
@@ -53,6 +56,7 @@
     "@babel/plugin-transform-destructuring": "workspace:^",
     "@babel/plugin-transform-dotall-regex": "workspace:^",
     "@babel/plugin-transform-duplicate-keys": "workspace:^",
+    "@babel/plugin-transform-duplicate-named-capturing-groups-regex": "workspace:^",
     "@babel/plugin-transform-dynamic-import": "workspace:^",
     "@babel/plugin-transform-exponentiation-operator": "workspace:^",
     "@babel/plugin-transform-export-namespace-from": "workspace:^",
@@ -62,6 +66,7 @@
     "@babel/plugin-transform-function-name": "workspace:^",
     "@babel/plugin-transform-instanceof": "workspace:^",
     "@babel/plugin-transform-jscript": "workspace:^",
+    "@babel/plugin-transform-json-modules": "workspace:^",
     "@babel/plugin-transform-json-strings": "workspace:^",
     "@babel/plugin-transform-literals": "workspace:^",
     "@babel/plugin-transform-logical-assignment-operators": "workspace:^",
@@ -95,6 +100,7 @@
     "@babel/plugin-transform-react-jsx-self": "workspace:^",
     "@babel/plugin-transform-react-jsx-source": "workspace:^",
     "@babel/plugin-transform-regenerator": "workspace:^",
+    "@babel/plugin-transform-regexp-modifiers": "workspace:^",
     "@babel/plugin-transform-reserved-words": "workspace:^",
     "@babel/plugin-transform-runtime": "workspace:^",
     "@babel/plugin-transform-shorthand-properties": "workspace:^",
@@ -112,7 +118,11 @@
     "@babel/preset-flow": "workspace:^",
     "@babel/preset-react": "workspace:^",
     "@babel/preset-typescript": "workspace:^",
-    "acorn": "^8.7.0"
+    "@babel/template": "workspace:^",
+    "@babel/traverse": "workspace:^",
+    "@babel/types": "workspace:^",
+    "acorn": "^8.11.3",
+    "jsdom": "^22.1.0"
   },
   "keywords": [
     "babel",
@@ -142,18 +152,12 @@
     "BABEL_8_BREAKING": [
       {
         "engines": {
-          "node": "^16.20.0 || ^18.16.0 || >=20.0.0"
+          "node": "^18.20.0 || ^20.17.0 || >=22.8.0"
         }
       },
       {
         "exports": null
       }
-    ],
-    "USE_ESM": [
-      {
-        "type": "module"
-      },
-      null
     ]
   },
   "exports": {

@@ -1,5 +1,5 @@
 import * as charCodes from "charcodes";
-import { tt, type TokenType } from "../tokenizer/types";
+import { tt, type TokenType } from "../tokenizer/types.ts";
 import type {
   AssignmentPattern,
   TSParameterProperty,
@@ -17,22 +17,20 @@ import type {
   PrivateName,
   ObjectExpression,
   ObjectPattern,
-  ArrayExpression,
   ArrayPattern,
-} from "../types";
-import type { Pos, Position } from "../util/location";
+  AssignmentProperty,
+  Assignable,
+} from "../types.ts";
+import type { Pos, Position } from "../util/location.ts";
 import {
   isStrictBindOnlyReservedWord,
   isStrictBindReservedWord,
-} from "../util/identifier";
-import { NodeUtils, type Undone } from "./node";
-import { type BindingTypes, BindingFlag } from "../util/scopeflags";
-import type { ExpressionErrors } from "./util";
-import { Errors, type LValAncestor } from "../parse-error";
-import type Parser from "./index";
-
-const getOwn = <T extends {}>(object: T, key: keyof T) =>
-  Object.hasOwnProperty.call(object, key) && object[key];
+} from "../util/identifier.ts";
+import { NodeUtils, type Undone } from "./node.ts";
+import { BindingFlag } from "../util/scopeflags.ts";
+import type { ExpressionErrors } from "./util.ts";
+import { Errors, type LValAncestor } from "../parse-error.ts";
+import type Parser from "./index.ts";
 
 const unwrapParenthesizedExpression = (node: Node): Node => {
   return node.type === "ParenthesizedExpression"
@@ -78,7 +76,7 @@ export default abstract class LValParser extends NodeUtils {
   ): void;
   abstract parsePropertyName(
     prop: ObjectOrClassMember | ClassMember | TsNamedTypeElementBase,
-  ): Expression | Identifier;
+  ): void;
   abstract parsePrivateName(): PrivateName;
   // Forward-declaration: defined in statement.js
   abstract parseDecorator(): Decorator;
@@ -99,7 +97,7 @@ export default abstract class LValParser extends NodeUtils {
    *              If isLHS is `true`, the following cases are allowed: `[(a)] = [0]`, `[(a.b)] = [0]`
    *              If isLHS is `false`, we are in an arrow function parameters list.
    */
-  toAssignable(node: Node, isLHS: boolean = false): void {
+  toAssignable(node: Node, isLHS: boolean = false): asserts node is Assignable {
     let parenthesized = undefined;
     if (node.type === "ParenthesizedExpression" || node.extra?.parenthesized) {
       parenthesized = unwrapParenthesizedExpression(node);
@@ -111,16 +109,19 @@ export default abstract class LValParser extends NodeUtils {
         if (parenthesized.type === "Identifier") {
           this.expressionScope.recordArrowParameterBindingError(
             Errors.InvalidParenthesizedAssignment,
-            { at: node },
+            node,
           );
-        } else if (parenthesized.type !== "MemberExpression") {
+        } else if (
+          parenthesized.type !== "MemberExpression" &&
+          !this.isOptionalMemberExpression(parenthesized)
+        ) {
           // A parenthesized member expression can be in LHS but not in pattern.
           // If the LHS is later interpreted as a pattern, `checkLVal` will throw for member expression binding
           // i.e. `([(a.b) = []] = []) => {}`
-          this.raise(Errors.InvalidParenthesizedAssignment, { at: node });
+          this.raise(Errors.InvalidParenthesizedAssignment, node);
         }
       } else {
-        this.raise(Errors.InvalidParenthesizedAssignment, { at: node });
+        this.raise(Errors.InvalidParenthesizedAssignment, node);
       }
     }
 
@@ -133,7 +134,7 @@ export default abstract class LValParser extends NodeUtils {
         break;
 
       case "ObjectExpression":
-        node.type = "ObjectPattern";
+        (node as Node).type = "ObjectPattern";
         for (
           let i = 0, length = node.properties.length, last = length - 1;
           i < length;
@@ -145,12 +146,10 @@ export default abstract class LValParser extends NodeUtils {
 
           if (
             isLast &&
-            prop.type === "RestElement" &&
+            (prop as Node).type === "RestElement" &&
             node.extra?.trailingCommaLoc
           ) {
-            this.raise(Errors.RestTrailingComma, {
-              at: node.extra.trailingCommaLoc,
-            });
+            this.raise(Errors.RestTrailingComma, node.extra.trailingCommaLoc);
           }
         }
         break;
@@ -175,7 +174,7 @@ export default abstract class LValParser extends NodeUtils {
       }
 
       case "ArrayExpression":
-        node.type = "ArrayPattern";
+        (node as Node).type = "ArrayPattern";
         this.toAssignableList(
           node.elements,
           node.extra?.trailingCommaLoc,
@@ -185,10 +184,10 @@ export default abstract class LValParser extends NodeUtils {
 
       case "AssignmentExpression":
         if (node.operator !== "=") {
-          this.raise(Errors.MissingEqInAssignment, { at: node.left.loc.end });
+          this.raise(Errors.MissingEqInAssignment, node.left.loc.end);
         }
 
-        node.type = "AssignmentPattern";
+        (node as Node).type = "AssignmentPattern";
         delete node.operator;
         this.toAssignable(node.left, isLHS);
         break;
@@ -214,16 +213,16 @@ export default abstract class LValParser extends NodeUtils {
         prop.kind === "get" || prop.kind === "set"
           ? Errors.PatternHasAccessor
           : Errors.PatternHasMethod,
-        { at: prop.key },
+        prop.key,
       );
     } else if (prop.type === "SpreadElement") {
-      prop.type = "RestElement";
+      (prop as Node).type = "RestElement";
       const arg = prop.argument;
       this.checkToRestConversion(arg, /* allowPattern */ false);
       this.toAssignable(arg, isLHS);
 
       if (!isLast) {
-        this.raise(Errors.RestTrailingComma, { at: prop });
+        this.raise(Errors.RestTrailingComma, prop);
       }
     } else {
       this.toAssignable(prop, isLHS);
@@ -233,7 +232,7 @@ export default abstract class LValParser extends NodeUtils {
   // Convert list of expression atoms to binding list.
 
   toAssignableList(
-    exprList: Expression[],
+    exprList: (Expression | SpreadElement | RestElement)[],
     trailingCommaLoc: Position | undefined | null,
     isLHS: boolean,
   ): void {
@@ -244,7 +243,7 @@ export default abstract class LValParser extends NodeUtils {
       if (!elt) continue;
 
       if (elt.type === "SpreadElement") {
-        elt.type = "RestElement";
+        (elt as unknown as RestElement).type = "RestElement";
         const arg = elt.argument;
         this.checkToRestConversion(arg, /* allowPattern */ true);
         this.toAssignable(arg, isLHS);
@@ -254,9 +253,9 @@ export default abstract class LValParser extends NodeUtils {
 
       if (elt.type === "RestElement") {
         if (i < end) {
-          this.raise(Errors.RestTrailingComma, { at: elt });
+          this.raise(Errors.RestTrailingComma, elt);
         } else if (trailingCommaLoc) {
-          this.raise(Errors.RestTrailingComma, { at: trailingCommaLoc });
+          this.raise(Errors.RestTrailingComma, trailingCommaLoc);
         }
       }
     }
@@ -273,15 +272,13 @@ export default abstract class LValParser extends NodeUtils {
 
       case "ObjectExpression": {
         const last = node.properties.length - 1;
-        return (node.properties as ObjectExpression["properties"]).every(
-          (prop, i) => {
-            return (
-              prop.type !== "ObjectMethod" &&
-              (i === last || prop.type !== "SpreadElement") &&
-              this.isAssignable(prop)
-            );
-          },
-        );
+        return node.properties.every((prop, i) => {
+          return (
+            prop.type !== "ObjectMethod" &&
+            (i === last || prop.type !== "SpreadElement") &&
+            this.isAssignable(prop)
+          );
+        });
       }
 
       case "ObjectProperty":
@@ -291,7 +288,7 @@ export default abstract class LValParser extends NodeUtils {
         return this.isAssignable(node.argument);
 
       case "ArrayExpression":
-        return (node as ArrayExpression).elements.every(
+        return node.elements.every(
           element => element === null || this.isAssignable(element),
         );
 
@@ -313,15 +310,21 @@ export default abstract class LValParser extends NodeUtils {
   // Convert list of expression atoms to a list of
 
   toReferencedList(
-    exprList: ReadonlyArray<Expression | undefined | null>,
+    exprList:
+      | ReadonlyArray<Expression | SpreadElement>
+      | ReadonlyArray<Expression | RestElement>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isParenthesizedExpr?: boolean,
-  ): ReadonlyArray<Expression | undefined | null> {
+  ):
+    | ReadonlyArray<Expression | SpreadElement>
+    | ReadonlyArray<Expression | RestElement> {
     return exprList;
   }
 
   toReferencedListDeep(
-    exprList: ReadonlyArray<Expression | undefined | null>,
+    exprList:
+      | ReadonlyArray<Expression | SpreadElement>
+      | ReadonlyArray<Expression | RestElement>,
     isParenthesizedExpr?: boolean,
   ): void {
     this.toReferencedList(exprList, isParenthesizedExpr);
@@ -403,9 +406,14 @@ export default abstract class LValParser extends NodeUtils {
       } else if (this.eat(close)) {
         break;
       } else if (this.match(tt.ellipsis)) {
-        elts.push(
-          this.parseAssignableListItemTypes(this.parseRestBinding(), flags),
-        );
+        let rest: Pattern = this.parseRestBinding();
+        if (
+          (!process.env.BABEL_8_BREAKING && this.hasPlugin("flow")) ||
+          flags & ParseBindingListFlags.IS_FUNCTION_PARAMS
+        ) {
+          rest = this.parseFunctionParamType(rest);
+        }
+        elts.push(rest);
         if (!this.checkCommaAfterRest(closeCharCode)) {
           this.expect(close);
           break;
@@ -413,9 +421,7 @@ export default abstract class LValParser extends NodeUtils {
       } else {
         const decorators = [];
         if (this.match(tt.at) && this.hasPlugin("decorators")) {
-          this.raise(Errors.UnsupportedParameterDecorator, {
-            at: this.state.startLoc,
-          });
+          this.raise(Errors.UnsupportedParameterDecorator, this.state.startLoc);
         }
         // invariant: hasPlugin("decorators-legacy")
         while (this.match(tt.at)) {
@@ -440,21 +446,23 @@ export default abstract class LValParser extends NodeUtils {
   }
 
   // https://tc39.es/ecma262/#prod-BindingProperty
-  parseBindingProperty(this: Parser): ObjectMember | RestElement {
-    const prop = this.startNode<ObjectMember | RestElement>();
+  parseBindingProperty(this: Parser): AssignmentProperty | RestElement {
     const { type, startLoc } = this.state;
     if (type === tt.ellipsis) {
-      return this.parseBindingRestProperty(prop as Undone<RestElement>);
-    } else if (type === tt.privateName) {
+      return this.parseBindingRestProperty(this.startNode());
+    }
+
+    const prop = this.startNode<AssignmentProperty>();
+    if (type === tt.privateName) {
       this.expectPlugin("destructuringPrivate", startLoc);
       this.classScope.usePrivateName(this.state.value, startLoc);
-      (prop as Undone<ObjectMember>).key = this.parsePrivateName();
+      prop.key = this.parsePrivateName();
     } else {
-      this.parsePropertyName(prop as Undone<ObjectMember>);
+      this.parsePropertyName(prop);
     }
-    (prop as Undone<ObjectMember>).method = false;
+    prop.method = false;
     return this.parseObjPropValue(
-      prop as Undone<ObjectMember>,
+      prop,
       startLoc,
       false /* isGenerator */,
       false /* isAsync */,
@@ -469,7 +477,12 @@ export default abstract class LValParser extends NodeUtils {
     decorators: Decorator[],
   ): Pattern | TSParameterProperty {
     const left = this.parseMaybeDefault();
-    this.parseAssignableListItemTypes(left, flags);
+    if (
+      (!process.env.BABEL_8_BREAKING && this.hasPlugin("flow")) ||
+      flags & ParseBindingListFlags.IS_FUNCTION_PARAMS
+    ) {
+      this.parseFunctionParamType(left);
+    }
     const elt = this.parseMaybeDefault(left.loc.start, left);
     if (decorators.length) {
       left.decorators = decorators;
@@ -478,11 +491,7 @@ export default abstract class LValParser extends NodeUtils {
   }
 
   // Used by flow/typescript plugin to add type annotations to binding elements
-  parseAssignableListItemTypes(
-    param: Pattern,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    flags: ParseBindingListFlags,
-  ): Pattern {
+  parseFunctionParamType(param: Pattern): Pattern {
     return param;
   }
 
@@ -536,62 +545,66 @@ export default abstract class LValParser extends NodeUtils {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isUnparenthesizedInAssign: boolean,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    binding: BindingTypes,
-  ): string | boolean {
-    return getOwn(
-      {
-        AssignmentPattern: "left",
-        RestElement: "argument",
-        ObjectProperty: "value",
-        ParenthesizedExpression: "expression",
-        ArrayPattern: "elements",
-        ObjectPattern: "properties",
-      },
-      // @ts-expect-error refine string to enum
-      type,
-    );
+    binding: BindingFlag,
+  ): string | boolean | [string, boolean] {
+    switch (type) {
+      case "AssignmentPattern":
+        return "left";
+      case "RestElement":
+        return "argument";
+      case "ObjectProperty":
+        return "value";
+      case "ParenthesizedExpression":
+        return "expression";
+      case "ArrayPattern":
+        return "elements";
+      case "ObjectPattern":
+        return "properties";
+    }
+    return false;
+  }
+
+  // Overridden by the estree plugin
+  isOptionalMemberExpression(expression: Node): boolean {
+    return expression.type === "OptionalMemberExpression";
   }
 
   /**
    * Verify that a target expression is an lval (something that can be assigned to).
    *
    * @param expression The expression in question to check.
-   * @param options A set of options described below.
-   * @param options.in
+   * @param ancestor
    *        The relevant ancestor to provide context information for the error
    *        if the check fails.
-   * @param options.binding
+   * @param binding
    *        The desired binding type. If the given expression is an identifier
    *        and `binding` is not `BindingFlag.TYPE_NONE`, `checkLVal` will register binding
    *        to the parser scope See also `src/util/scopeflags.js`
-   * @param options.checkClashes
+   * @param checkClashes
    *        An optional string set to check if an identifier name is included.
    *        `checkLVal` will add checked identifier name to `checkClashes` It is
    *        used in tracking duplicates in function parameter lists. If it is
    *        false, `checkLVal` will skip duplicate checks
-   * @param options.strictModeChanged
+   * @param strictModeChanged
    *        Whether an identifier has been parsed in a sloppy context but should
    *        be reinterpreted as strict-mode. e.g. `(arguments) => { "use strict "}`
-   * @param options.hasParenthesizedAncestor
+   * @param hasParenthesizedAncestor
    *        This is only used internally during recursive calls, and you should
    *        not have to set it yourself.
    */
 
   checkLVal(
-    expression: Expression | ObjectMember | RestElement,
-    {
-      in: ancestor,
-      binding = BindingFlag.TYPE_NONE,
-      checkClashes = false,
-      strictModeChanged = false,
-      hasParenthesizedAncestor = false,
-    }: {
-      in: LValAncestor;
-      binding?: BindingTypes;
-      checkClashes?: Set<string> | false;
-      strictModeChanged?: boolean;
-      hasParenthesizedAncestor?: boolean;
-    },
+    expression:
+      | Expression
+      | ObjectMember
+      | RestElement
+      | Pattern
+      | TSParameterProperty,
+    ancestor: LValAncestor,
+    binding: BindingFlag = BindingFlag.TYPE_NONE,
+    checkClashes: Set<string> | false = false,
+    strictModeChanged: boolean = false,
+    hasParenthesizedAncestor: boolean = false,
   ): void {
     const type = expression.type;
 
@@ -600,25 +613,33 @@ export default abstract class LValParser extends NodeUtils {
     // toAssignable already reported this error with a nicer message.
     if (this.isObjectMethod(expression)) return;
 
-    if (type === "MemberExpression") {
+    const isOptionalMemberExpression =
+      this.isOptionalMemberExpression(expression);
+
+    if (isOptionalMemberExpression || type === "MemberExpression") {
+      if (isOptionalMemberExpression) {
+        this.expectPlugin("optionalChainingAssign", expression.loc.start);
+        if (ancestor.type !== "AssignmentExpression") {
+          this.raise(Errors.InvalidLhsOptionalChaining, expression, {
+            ancestor,
+          });
+        }
+      }
+
       if (binding !== BindingFlag.TYPE_NONE) {
-        this.raise(Errors.InvalidPropertyBindingPattern, { at: expression });
+        this.raise(Errors.InvalidPropertyBindingPattern, expression);
       }
       return;
     }
 
     if (type === "Identifier") {
-      this.checkIdentifier(
-        expression as Identifier,
-        binding,
-        strictModeChanged,
-      );
+      this.checkIdentifier(expression, binding, strictModeChanged);
 
-      const { name } = expression as Identifier;
+      const { name } = expression;
 
       if (checkClashes) {
         if (checkClashes.has(name)) {
-          this.raise(Errors.ParamDupe, { at: expression });
+          this.raise(Errors.ParamDupe, expression);
         } else {
           checkClashes.add(name);
         }
@@ -641,37 +662,53 @@ export default abstract class LValParser extends NodeUtils {
           ? Errors.InvalidLhs
           : Errors.InvalidLhsBinding;
 
-      this.raise(ParseErrorClass, { at: expression, ancestor });
+      this.raise(ParseErrorClass, expression, { ancestor });
       return;
     }
 
-    const [key, isParenthesizedExpression] = Array.isArray(validity)
-      ? validity
-      : [validity, type === "ParenthesizedExpression"];
+    let key: string, isParenthesizedExpression: boolean;
+    if (typeof validity === "string") {
+      key = validity;
+      isParenthesizedExpression = type === "ParenthesizedExpression";
+    } else {
+      [key, isParenthesizedExpression] = validity;
+    }
+
     const nextAncestor =
-      type === "ArrayPattern" ||
-      type === "ObjectPattern" ||
-      type === "ParenthesizedExpression"
+      type === "ArrayPattern" || type === "ObjectPattern"
         ? ({ type } as const)
         : ancestor;
 
     // @ts-expect-error key may not index expression.
-    for (const child of [].concat(expression[key])) {
-      if (child) {
-        this.checkLVal(child, {
-          in: nextAncestor,
-          binding,
-          checkClashes,
-          strictModeChanged,
-          hasParenthesizedAncestor: isParenthesizedExpression,
-        });
+    const val = expression[key];
+    if (Array.isArray(val)) {
+      for (const child of val) {
+        if (child) {
+          this.checkLVal(
+            child,
+            nextAncestor,
+            binding,
+            checkClashes,
+            strictModeChanged,
+            isParenthesizedExpression,
+          );
+        }
       }
+    } else if (val) {
+      this.checkLVal(
+        val,
+        nextAncestor,
+        binding,
+        checkClashes,
+        strictModeChanged,
+        isParenthesizedExpression,
+      );
     }
   }
 
   checkIdentifier(
     at: Identifier,
-    bindingType: BindingTypes,
+    bindingType: BindingFlag,
     strictModeChanged: boolean = false,
   ) {
     if (
@@ -681,17 +718,16 @@ export default abstract class LValParser extends NodeUtils {
         : isStrictBindOnlyReservedWord(at.name))
     ) {
       if (bindingType === BindingFlag.TYPE_NONE) {
-        this.raise(Errors.StrictEvalArguments, { at, referenceName: at.name });
+        this.raise(Errors.StrictEvalArguments, at, { referenceName: at.name });
       } else {
-        this.raise(Errors.StrictEvalArgumentsBinding, {
-          at,
+        this.raise(Errors.StrictEvalArgumentsBinding, at, {
           bindingName: at.name,
         });
       }
     }
 
     if (bindingType & BindingFlag.FLAG_NO_LET_IN_LEXICAL && at.name === "let") {
-      this.raise(Errors.LetInLexicalBinding, { at });
+      this.raise(Errors.LetInLexicalBinding, at);
     }
 
     if (!(bindingType & BindingFlag.TYPE_NONE)) {
@@ -699,7 +735,7 @@ export default abstract class LValParser extends NodeUtils {
     }
   }
 
-  declareNameFromIdentifier(identifier: Identifier, binding: BindingTypes) {
+  declareNameFromIdentifier(identifier: Identifier, binding: BindingFlag) {
     this.scope.declareName(identifier.name, binding, identifier.loc.start);
   }
 
@@ -716,7 +752,7 @@ export default abstract class LValParser extends NodeUtils {
         if (allowPattern) break;
       /* falls through */
       default:
-        this.raise(Errors.InvalidRestAssignmentPattern, { at: node });
+        this.raise(Errors.InvalidRestAssignmentPattern, node);
     }
   }
 
@@ -731,7 +767,7 @@ export default abstract class LValParser extends NodeUtils {
       this.lookaheadCharCode() === close
         ? Errors.RestTrailingComma
         : Errors.ElementAfterRest,
-      { at: this.state.startLoc },
+      this.state.startLoc,
     );
 
     return true;

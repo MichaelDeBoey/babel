@@ -14,8 +14,6 @@ export const outputType = USE_ESM ? "module" : "script";
 
 export const isMJS = file => path.extname(file) === ".mjs";
 
-export const itESM = supportsESM ? it : it.skip;
-
 export function skipUnsupportedESM(name) {
   if (!supportsESM) {
     console.warn(
@@ -40,6 +38,11 @@ export function spawnTransformAsync() {
   return spawn("compile-async");
 }
 
+export function spawnTransformAsyncParallel() {
+  // import() crashes with jest
+  return spawn("compile-async-parallel");
+}
+
 export function spawnTransformSync() {
   // import() crashes with jest
   return spawn("compile-sync");
@@ -57,7 +60,7 @@ async function spawn(runner, filename, cwd = process.cwd()) {
   );
 
   const EXPERIMENTAL_WARNING =
-    /\(node:\d+\) ExperimentalWarning: The ESM module loader is experimental\./;
+    /\(node:\d+\) ExperimentalWarning: (The ESM module loader is experimental\.|CommonJS module .+? is loading ES Module .+? using require\(\)\.\nSupport for loading ES Module in require\(\) is an experimental feature and might change at any time\n\(Use `node --trace-warnings ...` to show where the warning was created\))/;
 
   if (stderr.replace(EXPERIMENTAL_WARNING, "").trim()) {
     throw new Error(

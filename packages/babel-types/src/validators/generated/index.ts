@@ -5,16 +5,16 @@
 
 /* eslint-disable no-fallthrough */
 
-import shallowEqual from "../../utils/shallowEqual";
-import type * as t from "../..";
-import deprecationWarning from "../../utils/deprecationWarning";
+import shallowEqual from "../../utils/shallowEqual.ts";
+import type * as t from "../../index.ts";
+import deprecationWarning from "../../utils/deprecationWarning.ts";
 
 type Opts<Obj> = Partial<{
   [Prop in keyof Obj]: Obj[Prop] extends t.Node
     ? t.Node
     : Obj[Prop] extends t.Node[]
-    ? t.Node[]
-    : Obj[Prop];
+      ? t.Node[]
+      : Obj[Prop];
 }>;
 
 export function isArrayExpression(
@@ -674,6 +674,16 @@ export function isImportSpecifier(
   if (!node) return false;
 
   if (node.type !== "ImportSpecifier") return false;
+
+  return opts == null || shallowEqual(node, opts);
+}
+export function isImportExpression(
+  node: t.Node | null | undefined,
+  opts?: Opts<t.ImportExpression> | null,
+): node is t.ImportExpression {
+  if (!node) return false;
+
+  if (node.type !== "ImportExpression") return false;
 
   return opts == null || shallowEqual(node, opts);
 }
@@ -2277,6 +2287,16 @@ export function isTSMappedType(
 
   return opts == null || shallowEqual(node, opts);
 }
+export function isTSTemplateLiteralType(
+  node: t.Node | null | undefined,
+  opts?: Opts<t.TSTemplateLiteralType> | null,
+): node is t.TSTemplateLiteralType {
+  if (!node) return false;
+
+  if (node.type !== "TSTemplateLiteralType") return false;
+
+  return opts == null || shallowEqual(node, opts);
+}
 export function isTSLiteralType(
   node: t.Node | null | undefined,
   opts?: Opts<t.TSLiteralType> | null,
@@ -2364,6 +2384,16 @@ export function isTSTypeAssertion(
   if (!node) return false;
 
   if (node.type !== "TSTypeAssertion") return false;
+
+  return opts == null || shallowEqual(node, opts);
+}
+export function isTSEnumBody(
+  node: t.Node | null | undefined,
+  opts?: Opts<t.TSEnumBody> | null,
+): node is t.TSEnumBody {
+  if (!node) return false;
+
+  if (node.type !== "TSEnumBody") return false;
 
   return opts == null || shallowEqual(node, opts);
 }
@@ -2580,6 +2610,7 @@ export function isStandardized(
     case "ImportDefaultSpecifier":
     case "ImportNamespaceSpecifier":
     case "ImportSpecifier":
+    case "ImportExpression":
     case "MetaProperty":
     case "ClassMethod":
     case "ObjectPattern":
@@ -2649,6 +2680,7 @@ export function isExpression(
     case "UpdateExpression":
     case "ArrowFunctionExpression":
     case "ClassExpression":
+    case "ImportExpression":
     case "MetaProperty":
     case "Super":
     case "TaggedTemplateExpression":
@@ -3108,6 +3140,7 @@ export function isDeclaration(
     case "TSTypeAliasDeclaration":
     case "TSEnumDeclaration":
     case "TSModuleDeclaration":
+    case "TSImportEqualsDeclaration":
       break;
     case "Placeholder":
       if (node.expectedNode === "Declaration") break;
@@ -3784,6 +3817,7 @@ export function isTypeScript(
     case "TSTypeOperator":
     case "TSIndexedAccessType":
     case "TSMappedType":
+    case "TSTemplateLiteralType":
     case "TSLiteralType":
     case "TSExpressionWithTypeArguments":
     case "TSInterfaceDeclaration":
@@ -3793,6 +3827,7 @@ export function isTypeScript(
     case "TSAsExpression":
     case "TSSatisfiesExpression":
     case "TSTypeAssertion":
+    case "TSEnumBody":
     case "TSEnumDeclaration":
     case "TSEnumMember":
     case "TSModuleDeclaration":
@@ -3872,6 +3907,7 @@ export function isTSType(
     case "TSTypeOperator":
     case "TSIndexedAccessType":
     case "TSMappedType":
+    case "TSTemplateLiteralType":
     case "TSLiteralType":
     case "TSExpressionWithTypeArguments":
     case "TSImportType":
@@ -3903,6 +3939,7 @@ export function isTSBaseType(
     case "TSUnknownKeyword":
     case "TSVoidKeyword":
     case "TSThisType":
+    case "TSTemplateLiteralType":
     case "TSLiteralType":
       break;
     default:

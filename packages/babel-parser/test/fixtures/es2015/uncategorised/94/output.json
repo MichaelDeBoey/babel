@@ -34,9 +34,13 @@
             "raw": "\"crypto\""
           },
           "value": "crypto"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

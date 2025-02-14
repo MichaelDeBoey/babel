@@ -37,9 +37,13 @@
           },
           "value": "./mod.js"
         },
-        "declaration": null
+        "declaration": null,
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

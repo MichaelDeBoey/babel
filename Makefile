@@ -1,5 +1,5 @@
-FLOW_COMMIT = 105ad30f566f401db9cafcb49cd2831fb29e87c5
-TEST262_COMMIT = 21c3097f92b244bfa2ae54ee9cf745839567b79a
+FLOW_COMMIT = b7f56844ec194c8901a18d11e6b356dd56b3bdeb
+TEST262_COMMIT = 6310295c8017b2fbd09b5857f414638cdc3ad5fa
 TYPESCRIPT_COMMIT = d87d0adcd30ac285393bf3bfbbb4d94d50c4f3c9
 
 SOURCES = packages codemods eslint
@@ -15,6 +15,9 @@ MAKEJS := node Makefile.js
 
 
 .PHONY: build build-dist watch lint fix clean test-clean test-only test test-ci publish bootstrap use-esm use-cjs
+
+Makefile.js: Makefile.source.mjs yarn.lock
+	$(NODE) ./scripts/pack-script.js
 
 build:
 	$(MAKEJS) build
@@ -55,12 +58,16 @@ build-plugin-transform-runtime-dist:
 watch:
 	$(MAKEJS) watch
 
-code-quality: tscheck lint
+code-quality: lint
 
 tscheck:
 	$(MAKEJS) tscheck
 
-lint-ci: lint check-compat-data
+clean-ts:
+	$(MAKEJS) clean-ts
+
+lint-ci:
+	$(MAKEJS) lint-ci
 
 generate-readme:
 	$(NODE) scripts/generators/readmes.js
@@ -110,6 +117,9 @@ use-esm:
 
 clean-lib:
 	$(MAKEJS) clean-lib
+
+clean-node-modules:
+	$(MAKEJS) clean-node-modules
 
 clean-runtime-helpers:
 	$(MAKEJS) clean-runtime-helpers
@@ -213,7 +223,7 @@ ifneq ("$(I_AM_USING_VERDACCIO)", "I_AM_SURE")
 	exit 1
 endif
 	$(YARN) release-tool version $(VERSION) --all --yes --tag-version-prefix="version-e2e-test-"
-	$(MAKE) prepublish-build
+	$(MAKE) prepublish
 	node ./scripts/set-module-type.js clean
 	YARN_NPM_PUBLISH_REGISTRY=http://localhost:4873 $(YARN) release-tool publish --yes --tag-version-prefix="version-e2e-test-"
 	$(MAKE) clean

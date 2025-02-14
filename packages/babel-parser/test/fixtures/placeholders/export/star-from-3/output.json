@@ -35,9 +35,13 @@
             "name": "FILE"
           },
           "expectedNode": "StringLiteral"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

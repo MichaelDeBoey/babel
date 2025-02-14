@@ -1,11 +1,12 @@
 // This file contains methods responsible for maintaining a TraversalContext.
 
-import { traverseNode } from "../traverse-node";
-import { SHOULD_SKIP, SHOULD_STOP } from "./index";
-import type TraversalContext from "../context";
-import type { VisitPhase } from "../types";
-import type NodePath from "./index";
-import type * as t from "@babel/types";
+import { traverseNode } from "../traverse-node.ts";
+import { SHOULD_SKIP, SHOULD_STOP } from "./index.ts";
+import { _markRemoved } from "./removal.ts";
+import type TraversalContext from "../context.ts";
+import type { VisitPhase } from "../types.ts";
+import type NodePath from "./index.ts";
+import * as t from "@babel/types";
 
 export function call(this: NodePath, key: VisitPhase): boolean {
   const opts = this.opts;
@@ -13,11 +14,11 @@ export function call(this: NodePath, key: VisitPhase): boolean {
   this.debug(key);
 
   if (this.node) {
-    if (this._call(opts[key])) return true;
+    if (_call.call(this, opts[key])) return true;
   }
 
   if (this.node) {
-    return this._call(opts[this.node.type]?.[key]);
+    return _call.call(this, opts[this.node.type]?.[key]);
   }
 
   return false;
@@ -58,11 +59,13 @@ export function _call(this: NodePath, fns?: Array<Function>): boolean {
 export function isDenylisted(this: NodePath): boolean {
   // @ts-expect-error TODO(Babel 8): Remove blacklist
   const denylist = this.opts.denylist ?? this.opts.blacklist;
-  return denylist && denylist.indexOf(this.node.type) > -1;
+  return denylist?.includes(this.node.type);
 }
 
-// TODO: Remove in Babel 8
-export { isDenylisted as isBlacklisted };
+if (!process.env.BABEL_8_BREAKING && !USE_ESM) {
+  // eslint-disable-next-line no-restricted-globals
+  exports.isBlacklisted = isDenylisted;
+}
 
 function restoreContext(path: NodePath, context: TraversalContext) {
   if (path.context !== context) {
@@ -91,7 +94,7 @@ export function visit(this: NodePath): boolean {
   // before calling the enter visitor, but it can be true in case of
   // a requeued node (e.g. by .replaceWith()) that is then marked
   // with .skip().
-  if (this.shouldSkip || this.call("enter")) {
+  if (this.shouldSkip || call.call(this, "enter")) {
     this.debug("Skip...");
     return this.shouldStop;
   }
@@ -109,7 +112,7 @@ export function visit(this: NodePath): boolean {
 
   restoreContext(this, currentContext);
 
-  this.call("exit");
+  call.call(this, "exit");
 
   return this.shouldStop;
 }
@@ -174,7 +177,7 @@ export function setContext<S = unknown>(
     this.opts = context.opts as typeof this.opts;
   }
 
-  this.setScope();
+  setScope.call(this);
 
   return this;
 }
@@ -188,9 +191,9 @@ export function setContext<S = unknown>(
 export function resync(this: NodePath) {
   if (this.removed) return;
 
-  this._resyncParent();
-  this._resyncList();
-  this._resyncKey();
+  _resyncParent.call(this);
+  _resyncList.call(this);
+  _resyncKey.call(this);
   //this._resyncRemoved();
 }
 
@@ -217,7 +220,7 @@ export function _resyncKey(this: NodePath) {
   if (Array.isArray(this.container)) {
     for (let i = 0; i < this.container.length; i++) {
       if (this.container[i] === this.node) {
-        this.setKey(i);
+        setKey.call(this, i);
         return;
       }
     }
@@ -225,7 +228,7 @@ export function _resyncKey(this: NodePath) {
     for (const key of Object.keys(this.container)) {
       // @ts-expect-error this.key should present in this.container
       if (this.container[key] === this.node) {
-        this.setKey(key);
+        setKey.call(this, key);
         return;
       }
     }
@@ -254,7 +257,7 @@ export function _resyncRemoved(this: NodePath) {
     // @ts-expect-error this.key should present in this.container
     this.container[this.key] !== this.node
   ) {
-    this._markRemoved();
+    _markRemoved.call(this);
   }
 }
 
@@ -283,7 +286,7 @@ export function setup(
   this.container = container;
 
   this.parentPath = parentPath || this.parentPath;
-  this.setKey(key);
+  setKey.call(this, key);
 }
 
 export function setKey(this: NodePath, key: string | number) {
@@ -310,6 +313,20 @@ export function requeue(this: NodePath, pathToQueue = this) {
 
   for (const context of contexts) {
     context.maybeQueue(pathToQueue);
+  }
+}
+
+export function requeueComputedKeyAndDecorators(
+  this: NodePath<t.Method | t.Property>,
+) {
+  const { context, node } = this;
+  if (!t.isPrivate(node) && node.computed) {
+    context.maybeQueue(this.get("key"));
+  }
+  if (node.decorators) {
+    for (const decorator of this.get("decorators")) {
+      context.maybeQueue(decorator);
+    }
   }
 }
 

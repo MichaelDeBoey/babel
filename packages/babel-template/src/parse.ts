@@ -15,8 +15,8 @@ import type * as t from "@babel/types";
 import type { TraversalAncestors } from "@babel/types";
 import { parse } from "@babel/parser";
 import { codeFrameColumns } from "@babel/code-frame";
-import type { TemplateOpts, ParserOpts } from "./options";
-import type { Formatter } from "./formatters";
+import type { TemplateOpts, ParserOpts } from "./options.ts";
+import type { Formatter } from "./formatters.ts";
 
 export type Metadata = {
   ast: t.File;
@@ -208,7 +208,6 @@ function parseWithCodeFrame(
   };
 
   try {
-    // @ts-expect-error todo: use babel-types ast typings in Babel parser
     return parse(code, parserOpts);
   } catch (err) {
     const loc = err.loc;

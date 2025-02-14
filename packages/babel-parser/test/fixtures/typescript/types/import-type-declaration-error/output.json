@@ -63,9 +63,13 @@
             "raw": "\"module\""
           },
           "value": "module"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

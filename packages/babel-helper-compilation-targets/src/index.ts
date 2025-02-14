@@ -9,10 +9,10 @@ import {
   isUnreleasedVersion,
   getLowestUnreleased,
   getHighestUnreleased,
-} from "./utils";
+} from "./utils.ts";
 import { OptionValidator } from "@babel/helper-validator-option";
-import { browserNameMap } from "./targets";
-import { TargetNames } from "./options";
+import { browserNameMap } from "./targets.ts";
+import { TargetNames } from "./options.ts";
 import type {
   Target,
   Targets,
@@ -20,14 +20,14 @@ import type {
   Browsers,
   BrowserslistBrowserName,
   TargetsTuple,
-} from "./types";
+} from "./types.ts";
 
 export type { Target, Targets, InputTargets };
 
-export { prettifyTargets } from "./pretty";
-export { getInclusionReasons } from "./debug";
-export { default as filterItems, isRequired } from "./filter-items";
-export { unreleasedLabels } from "./targets";
+export { prettifyTargets } from "./pretty.ts";
+export { getInclusionReasons } from "./debug.ts";
+export { default as filterItems, isRequired } from "./filter-items.ts";
+export { unreleasedLabels } from "./targets.ts";
 export { TargetNames };
 
 const ESM_SUPPORT = browserModulesData["es6.module"];
@@ -101,7 +101,7 @@ function getLowestVersions(browsers: Array<string>): Targets {
 
           all[target] = semverMin(version, parsedBrowserVersion);
         }
-      } catch (e) {}
+      } catch (_) {}
 
       return all;
     },
@@ -129,7 +129,7 @@ getting parsed as 6.1, which can lead to unexpected behavior.
 function semverifyTarget(target: Target, value: string) {
   try {
     return semverify(value);
-  } catch (error) {
+  } catch (_) {
     throw new Error(
       v.formatMessage(
         `'${value}' is not a valid value for 'targets.${target}'.`,
@@ -142,7 +142,8 @@ function semverifyTarget(target: Target, value: string) {
 function nodeTargetParser(value: true | string) {
   const parsed =
     value === true || value === "current"
-      ? process.versions.node
+      ? // Align with `browserslist` and strip prerelease tag.
+        process.versions.node.split("-")[0]
       : semverifyTarget("node", value);
   return ["node", parsed] as const;
 }
@@ -193,6 +194,8 @@ type GetTargetsOption = {
   browserslistEnv?: string;
   // true to disable config loading
   ignoreBrowserslistConfig?: boolean;
+  // custom hook when browserslist config is found
+  onBrowserslistConfigFound?: (configFile: string) => void;
 };
 
 export default function getTargets(
@@ -200,7 +203,7 @@ export default function getTargets(
   options: GetTargetsOption = {},
 ): Targets {
   let { browsers, esmodules } = inputTargets;
-  const { configPath = "." } = options;
+  const { configPath = ".", onBrowserslistConfigFound } = options;
 
   validateBrowsers(browsers);
 
@@ -213,11 +216,22 @@ export default function getTargets(
     !options.ignoreBrowserslistConfig && !hasTargets;
 
   if (!browsers && shouldSearchForConfig) {
-    browsers = browserslist.loadConfig({
-      config: options.configFile,
-      path: configPath,
-      env: options.browserslistEnv,
-    });
+    // https://github.com/browserslist/browserslist/blob/8ae85caa905d130f4ca86f7a998a5b63abbbe582/node.js#L243
+    browsers = process.env.BROWSERSLIST;
+    if (!browsers) {
+      const configFile =
+        options.configFile ||
+        process.env.BROWSERSLIST_CONFIG ||
+        browserslist.findConfigFile(configPath);
+      if (configFile != null) {
+        onBrowserslistConfigFound?.(configFile);
+        browsers = browserslist.loadConfig({
+          config: configFile,
+          env: options.browserslistEnv,
+        });
+      }
+    }
+
     if (browsers == null) {
       if (process.env.BABEL_8_BREAKING) {
         // In Babel 8, if no targets are passed, we use browserslist's defaults.

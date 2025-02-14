@@ -111,7 +111,11 @@ const es2015 = {
     ],
   },
   "transform-typeof-symbol": {
-    features: ["Symbol / typeof support"],
+    features: [
+      "Symbol / typeof support",
+      "Symbol / can convert with String()",
+      "Symbol / Object(symbol)",
+    ],
   },
   "transform-new-target": {
     features: ["new.target", 'arrow functions / lexical "new.target" binding'],
@@ -138,7 +142,7 @@ const es2018 = {
   "transform-object-rest-spread": "object rest/spread properties",
 
   "transform-dotall-regex": "s (dotAll) flag for regular expressions",
-  "transform-unicode-property-regex": "RegExp Unicode Property Escapes",
+  "transform-unicode-property-regex": "RegExp Unicode Property Escapes / basic",
   "transform-named-capturing-groups-regex": "RegExp named capture groups",
 };
 
@@ -158,24 +162,51 @@ const es2021 = {
 };
 
 const es2022 = {
+  "bugfix/transform-v8-static-class-fields-redefine-readonly": {
+    features: ["static class fields / static class fields use [[Define]]"],
+    replaces: "transform-class-properties",
+  },
+  "bugfix/transform-firefox-class-in-computed-class-key": {
+    replaces: "transform-class-properties",
+    overwrite: {
+      // TODO: Once Firefox releases the fix, write the correct version here.
+      firefox: undefined,
+    },
+  },
+  "bugfix/transform-safari-class-field-initializer-scope": {
+    features: ["instance class fields / resolving identifier in parent scope"],
+    replaces: "transform-class-properties",
+  },
   "transform-class-static-block": "Class static initialization blocks",
   "transform-private-property-in-object":
     "Ergonomic brand checks for private fields",
   "transform-class-properties": {
     features: [
-      "static class fields / public static class fields",
-      "static class fields / private static class fields",
-      "static class fields / computed static class fields",
+      "static class fields",
       "instance class fields / public instance class fields",
       "instance class fields / private instance class fields basic support",
       "instance class fields / computed instance class fields",
+      "instance class fields / resolving identifier in parent scope",
     ],
   },
   "transform-private-methods": "private class methods",
 };
 
 const es2024 = {
-  "transform-unicode-sets-regex": "RegExp `v` flag",
+  "transform-unicode-sets-regex": {
+    features: [
+      "RegExp `v` flag / set notations",
+      "RegExp `v` flag / properties of Strings",
+      "RegExp `v` flag / constructor supports it",
+      "RegExp `v` flag / shows up in flags",
+    ],
+  },
+};
+
+const es2025 = {
+  "transform-duplicate-named-capturing-groups-regex":
+    "Duplicate named capturing groups",
+  "transform-regexp-modifiers": "RegExp Pattern Modifiers",
 };
 
 const shippedProposal = {};
@@ -184,6 +215,7 @@ const shippedProposal = {};
 module.exports = Object.assign(
   {},
   shippedProposal,
+  es2025,
   es2024,
   es2022,
   es2021,

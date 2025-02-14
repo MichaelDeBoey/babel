@@ -51,9 +51,13 @@
             "raw": "\"./mod.js\""
           },
           "value": "./mod.js"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

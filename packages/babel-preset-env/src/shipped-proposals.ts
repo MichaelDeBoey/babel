@@ -3,14 +3,13 @@
 // These mappings represent the transform plugins that have been
 // shipped by browsers, and are enabled by the `shippedProposals` option.
 
-const proposalPlugins = new Set<string>();
+const proposalPlugins = new Set<string>([]);
 
 // proposal syntax plugins enabled by the `shippedProposals` option.
 // Unlike proposalPlugins above, they are independent of compiler targets.
-const proposalSyntaxPlugins = [
-  "syntax-import-assertions",
-  "syntax-import-attributes",
-] as const;
+const proposalSyntaxPlugins = process.env.BABEL_8_BREAKING
+  ? ([] as const)
+  : (["syntax-import-assertions", "syntax-import-attributes"] as const);
 
 // use intermediary object to enforce alphabetical key order
 const pluginSyntaxObject = process.env.BABEL_8_BREAKING
@@ -19,6 +18,7 @@ const pluginSyntaxObject = process.env.BABEL_8_BREAKING
       "transform-async-generator-functions": "syntax-async-generators",
       "transform-class-properties": "syntax-class-properties",
       "transform-class-static-block": "syntax-class-static-block",
+      "transform-export-namespace-from": "syntax-export-namespace-from",
       "transform-json-strings": "syntax-json-strings",
       "transform-nullish-coalescing-operator":
         "syntax-nullish-coalescing-operator",

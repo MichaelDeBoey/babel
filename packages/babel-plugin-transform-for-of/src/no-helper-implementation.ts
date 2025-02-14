@@ -1,5 +1,11 @@
-import { type PluginPass, template, types as t } from "@babel/core";
-import type { NodePath } from "@babel/traverse";
+if (process.env.BABEL_8_BREAKING && process.env.IS_PUBLISH) {
+  throw new Error(
+    "Internal Babel error: This file should only be loaded in Babel 7",
+  );
+}
+
+import { template, types as t } from "@babel/core";
+import type { PluginPass, NodePath } from "@babel/core";
 
 // This is the legacy implementation, which inlines all the code.
 // It must be kept for compatibility reasons.

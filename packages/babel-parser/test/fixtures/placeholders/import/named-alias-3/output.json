@@ -44,9 +44,13 @@
             "raw": "\"file\""
           },
           "value": "file"
-        }
+        },
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

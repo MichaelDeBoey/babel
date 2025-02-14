@@ -36,9 +36,13 @@
           },
           "expectedNode": "StringLiteral"
         },
-        "declaration": null
+        "declaration": null,
+        "attributes": []
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }

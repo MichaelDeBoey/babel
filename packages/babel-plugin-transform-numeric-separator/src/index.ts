@@ -1,6 +1,5 @@
 import { declare } from "@babel/helper-plugin-utils";
-import type { NodePath } from "@babel/traverse";
-import type * as t from "@babel/types";
+import type { NodePath, types as t } from "@babel/core";
 
 /**
  * Given a bigIntLiteral or NumericLiteral, remove numeric
@@ -18,14 +17,13 @@ function remover({ node }: NodePath<t.BigIntLiteral | t.NumericLiteral>) {
 }
 
 export default declare(api => {
-  api.assertVersion(7);
+  api.assertVersion(REQUIRED_VERSION(7));
 
   return {
     name: "transform-numeric-separator",
-    inherits: USE_ESM
+    manipulateOptions: process.env.BABEL_8_BREAKING
       ? undefined
-      : // eslint-disable-next-line no-restricted-globals
-        require("@babel/plugin-syntax-numeric-separator").default,
+      : (_, parser) => parser.plugins.push("numericSeparator"),
 
     visitor: {
       NumericLiteral: remover,

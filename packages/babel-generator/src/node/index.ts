@@ -1,43 +1,61 @@
-import * as whitespace from "./whitespace";
-import * as parens from "./parentheses";
+import * as whitespace from "./whitespace.ts";
+import * as parens from "./parentheses.ts";
 import {
   FLIPPED_ALIAS_KEYS,
+  VISITOR_KEYS,
   isCallExpression,
+  isDecorator,
   isExpressionStatement,
   isMemberExpression,
   isNewExpression,
+  isParenthesizedExpression,
 } from "@babel/types";
 import type * as t from "@babel/types";
 
-import type { WhitespaceFlag } from "./whitespace";
+import type { WhitespaceFlag } from "./whitespace.ts";
+
+export const enum TokenContext {
+  expressionStatement = 1 << 0,
+  arrowBody = 1 << 1,
+  exportDefault = 1 << 2,
+  forHead = 1 << 3,
+  forInHead = 1 << 4,
+  forOfHead = 1 << 5,
+  arrowFlowReturnType = 1 << 6,
+}
+
+type NodeHandler<R> = (
+  node: t.Node,
+  // todo:
+  // node: K extends keyof typeof t
+  //   ? Extract<typeof t[K], { type: "string" }>
+  //   : t.Node,
+  parent: t.Node,
+  tokenContext?: number,
+  inForStatementInit?: boolean,
+  getRawIdentifier?: (node: t.Identifier) => string,
+) => R;
 
 export type NodeHandlers<R> = {
-  [K in string]?: (
-    node: K extends t.Node["type"] ? Extract<t.Node, { type: K }> : t.Node,
-    // todo:
-    // node: K extends keyof typeof t
-    //   ? Extract<typeof t[K], { type: "string" }>
-    //   : t.Node,
-    parent: t.Node,
-    stack: t.Node[],
-  ) => R;
+  [K in string]?: NodeHandler<R>;
 };
 
 function expandAliases<R>(obj: NodeHandlers<R>) {
-  const newObj: NodeHandlers<R> = {};
+  const map = new Map<string, NodeHandler<R>>();
 
-  function add(
-    type: string,
-    func: (node: t.Node, parent: t.Node, stack: t.Node[]) => R,
-  ) {
-    const fn = newObj[type];
-    newObj[type] = fn
-      ? function (node, parent, stack) {
-          const result = fn(node, parent, stack);
-
-          return result == null ? func(node, parent, stack) : result;
-        }
-      : func;
+  function add(type: string, func: NodeHandler<R>) {
+    const fn = map.get(type);
+    map.set(
+      type,
+      fn
+        ? function (node, parent, stack, inForInit, getRawIdentifier) {
+            return (
+              fn(node, parent, stack, inForInit, getRawIdentifier) ??
+              func(node, parent, stack, inForInit, getRawIdentifier)
+            );
+          }
+        : func,
+    );
   }
 
   for (const type of Object.keys(obj)) {
@@ -51,23 +69,13 @@ function expandAliases<R>(obj: NodeHandlers<R>) {
     }
   }
 
-  return newObj;
+  return map;
 }
 
 // Rather than using `t.is` on each object property, we pre-expand any type aliases
 // into concrete types so that the 'find' call below can be as fast as possible.
 const expandedParens = expandAliases(parens);
 const expandedWhitespaceNodes = expandAliases(whitespace.nodes);
-
-function find<R>(
-  obj: NodeHandlers<R>,
-  node: t.Node,
-  parent: t.Node,
-  printStack?: t.Node[],
-): R | null {
-  const fn = obj[node.type];
-  return fn ? fn(node, parent, printStack) : null;
-}
 
 function isOrHasCallExpression(node: t.Node): boolean {
   if (isCallExpression(node)) {
@@ -88,7 +96,7 @@ export function needsWhitespace(
     node = node.expression;
   }
 
-  const flag = find(expandedWhitespaceNodes, node, parent);
+  const flag = expandedWhitespaceNodes.get(node.type)?.(node, parent);
 
   if (typeof flag === "number") {
     return (flag & type) !== 0;
@@ -108,7 +116,9 @@ export function needsWhitespaceAfter(node: t.Node, parent: t.Node) {
 export function needsParens(
   node: t.Node,
   parent: t.Node,
-  printStack?: t.Node[],
+  tokenContext?: number,
+  inForInit?: boolean,
+  getRawIdentifier?: (node: t.Identifier) => string,
 ) {
   if (!parent) return false;
 
@@ -116,5 +126,51 @@ export function needsParens(
     if (isOrHasCallExpression(node)) return true;
   }
 
-  return find(expandedParens, node, parent, printStack);
+  if (isDecorator(parent)) {
+    return (
+      !isDecoratorMemberExpression(node) &&
+      !(isCallExpression(node) && isDecoratorMemberExpression(node.callee)) &&
+      !isParenthesizedExpression(node)
+    );
+  }
+
+  return expandedParens.get(node.type)?.(
+    node,
+    parent,
+    tokenContext,
+    inForInit,
+    getRawIdentifier,
+  );
+}
+
+function isDecoratorMemberExpression(node: t.Node): boolean {
+  switch (node.type) {
+    case "Identifier":
+      return true;
+    case "MemberExpression":
+      return (
+        !node.computed &&
+        node.property.type === "Identifier" &&
+        isDecoratorMemberExpression(node.object)
+      );
+    default:
+      return false;
+  }
+}
+
+export function isLastChild(parent: t.Node, child: t.Node) {
+  const visitorKeys = VISITOR_KEYS[parent.type];
+  for (let i = visitorKeys.length - 1; i >= 0; i--) {
+    const val = (parent as any)[visitorKeys[i]] as t.Node | t.Node[] | null;
+    if (val === child) {
+      return true;
+    } else if (Array.isArray(val)) {
+      let j = val.length - 1;
+      while (j >= 0 && val[j] === null) j--;
+      return j >= 0 && val[j] === child;
+    } else if (val) {
+      return false;
+    }
+  }
+  return false;
 }

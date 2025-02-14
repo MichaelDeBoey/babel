@@ -35,13 +35,17 @@
                   "raw": "\"bar\""
                 },
                 "value": "bar"
-              }
+              },
+              "attributes": []
             }
           ]
         },
         "kind": "ES"
       }
     ],
-    "directives": []
+    "directives": [],
+    "extra": {
+      "topLevelAwait": false
+    }
   }
 }
